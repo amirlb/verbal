@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Verbal | Settings</title>
+    <style>
+        .button-container {
+            display: flex;
+            gap: 1rem;
+            margin: 1rem;
+        }
+        button {
+            padding: 0.5rem 1rem;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Settings</h1>
+    <div class="button-container">
+        <button onclick="window.location.href='/'">Back to Home</button>
+        <button onclick="fetch('/api/deploy', {method: 'POST'})">Deploy to Production</button>
+    </div>
+</body>
+</html>

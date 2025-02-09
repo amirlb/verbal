@@ -1,0 +1,49 @@
+networks:
+  verbal:
+    driver: bridge
+
+services:
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy
+    networks:
+      - verbal
+    ports:
+      - "4180:4180"
+    volumes:
+      - ./outside/oauth2-proxy.cfg:/etc/oauth2-proxy.cfg
+      - ./outside/authenticated-emails:/etc/authenticated-emails
+    env_file:
+      - ./outside/.env
+    command: --config=/etc/oauth2-proxy.cfg
+
+  outside:
+    build: ./outside
+    networks:
+      - verbal
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./outside:/app
+      - ./data:/data
+
+  inside:
+    build: ./inside
+    networks:
+      - verbal
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data/production:/data
+    env_file:
+      - ./inside/.env
+    command: --server.baseUrlPath=/verbal
+
+  inside-staging:
+    build: ./inside
+    networks:
+      - verbal
+    volumes:
+      - ./data/staging:/data
+    env_file:
+      - ./inside/.env
+    command: --server.baseUrlPath=/verbal-staging
