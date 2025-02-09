@@ -27,5 +27,5 @@ The HTTP endpoints are:
 The inner service would also interpret commands from the language model and
 run them on the system, which means it must run in a separate container. In
 addition, actions in both instances edit the same directory (staging).
-Deploying core is handled by the outside service. The production copy is
+Deploying code is handled by the outside service. The production copy is
 a git repo, and on every deployment a new commit is created.

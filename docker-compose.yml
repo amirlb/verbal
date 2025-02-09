@@ -12,6 +12,7 @@ services:
     volumes:
       - ./outside/oauth2-proxy.cfg:/etc/oauth2-proxy.cfg
       - ./outside/authenticated-emails:/etc/authenticated-emails
+      - ./assets/logo.png:/var/verbal-logo.png
     env_file:
       - ./outside/.env
     command: --config=/etc/oauth2-proxy.cfg
@@ -22,9 +23,6 @@ services:
       - verbal
     ports:
       - "3000:3000"
-    volumes:
-      - ./outside:/app
-      - ./data:/data
 
   inside:
     build: ./inside
@@ -32,8 +30,6 @@ services:
       - verbal
     ports:
       - "8000:8000"
-    volumes:
-      - ./data/production:/data
     env_file:
       - ./inside/.env
     command: --server.baseUrlPath=/verbal

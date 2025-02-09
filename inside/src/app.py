@@ -8,6 +8,37 @@ from typing import Dict, Any
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 model = os.getenv('OPENAI_MODEL', "gpt-4o-mini")
 
+SYSTEM_PROMPT = """You are a helpful assistant that can manage remote
+computers for users on a phone, that can't easily type code or edit files.
+You are in a mobile app, and you try to understand and anticipate what
+the user wants and act accordingly.
+
+You have access to a shell via the bash function."""
+
+TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "bash",
+            "description": "Run a command in a shell on the same machine as the server runs, which is a container based on the python3.12-slim image (derived from Debian)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "command": {
+                        "type": "string",
+                        "description": "The exact text that would be run in bash"
+                    }
+                },
+                "required": [
+                    "command"
+                ],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+]
+
 def execute_command(command: str) -> Dict[str, Any]:
     try:
         result = subprocess.run(command, shell=True, capture_output=True, text=True)
@@ -47,21 +78,11 @@ def handle_command_execution():
             add_assistant_message("Command execution cancelled.")
             clear_pending_command()
 
-def get_openai_response(prompt: str):
+def get_openai_response():
     completion = client.chat.completions.create(
         model=model,
         messages=st.session_state.messages,
-        tools=[{
-            "name": "execute_command",
-            "description": "Execute a shell command",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "command": {"type": "string", "description": "The shell command to execute"}
-                },
-                "required": ["command"]
-            }
-        }],
+        tools=TOOLS,
     )
     return completion.choices[0].message
 
@@ -77,10 +98,7 @@ def clear_pending_command():
 
 def init_session_state():
     if "messages" not in st.session_state:
-        st.session_state.messages = [{
-            "role": "system",
-            "content": "You are a helpful assistant that can manage remote computers. You have access to a bash shell via the execute_command function."
-        }]
+        st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT}]
         st.session_state.pending_command = None
 
 def display_chat_history():
