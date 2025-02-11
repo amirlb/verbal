@@ -8,7 +8,7 @@ from streamlit.components.v1 import html
 import os
 import subprocess
 from openai import OpenAI
-from typing import Callable
+from typing import Callable, Sequence
 import platform, datetime
 
 
@@ -64,11 +64,11 @@ TOOLS = [
                         "description": "The full path of the file, starting with /"
                     },
                     "from_line": {
-                        "type": "number",
+                        "type": "integer",
                         "description": "Start from this line (1-based, optional)"
                     },
                     "to_line": {
-                        "type": "number",
+                        "type": "integer",
                         "description": "Show content up to this line and including it (1-based, optional)"
                     }
                 },
@@ -98,38 +98,62 @@ TOOLS = [
             "strict": True
         }
     },
-    # {
-    #     "type": "function",
-    #     "function": {
-    #         "name": "str_replace",
-    #         "description": "Replace occurrences of a string in a file",
-    #         "parameters": {
-    #             "type": "object",
-    #             "properties": {
-    #                 "path": {
-    #                     "type": "string",
-    #                     "description": "The full path of the file, starting with /"
-    #                 },
-    #                 "old_str": {
-    #                     "type": "string", 
-    #                     "description": "String to be replaced"
-    #                 },
-    #                 "new_str": {
-    #                     "type": "string",
-    #                     "description": "String to replace with"
-    #                 }
-    #             },
-    #             "required": [
-    #                 "path",
-    #                 "old_str", 
-    #                 "new_str"
-    #             ],
-    #             "additionalProperties": False
-    #         },
-    #         "strict": True
-    #     }
-    # },
-    # todo: create_file, replace_lines
+    {
+        "type": "function",
+        "function": {
+            "name": "create_file",
+            "description": "Create a new file with specified content",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "The full path of the file to create, starting with /"
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Content to write to the file"
+                    }
+                },
+                "required": ["path", "content"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "edit_file",
+            "description": "Edit specific lines in a file. The first and last 2 lines of the content must match the existing file content",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "The full path of the file to edit, starting with /"
+                    },
+                    "from_line": {
+                        "type": "integer",
+                        "description": "Replace lines starting from this line (1-based)",
+                        "minimum": 1
+                    },
+                    "to_line": {
+                        "type": "integer",
+                        "description": "The last line of the replaced block (1-based)",
+                        "minimum": 1
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "New content to replace the specified line range. First and last 2 lines must match original file"
+                    }
+                },
+                "required": ["path", "from_line", "to_line", "content"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
 ]
 
 
@@ -149,6 +173,36 @@ def bash_tool(command: str) -> str:
             "exitcode": result.returncode
         }
         return json.dumps(response)
+    except Exception as e:
+        return str(e)
+
+
+def create_file(path: str, content: str) -> str:
+    try:
+        open(path, "w").write(content)
+        return f"Created file {path}"
+    except Exception as e:
+        return str(e)
+
+
+def edit_file(path: str, from_line: int, to_line: int, new_lines: Sequence[str]) -> str:
+    try:
+        # Read existing file
+        with open(path, 'r') as f:
+            lines = f.read().splitlines()
+
+        # Replace content in specified range
+        assert new_lines[0].strip() == lines[from_line-1].strip(), "first 2 lines don't match original content"
+        assert new_lines[1].strip() == lines[from_line].strip(), "first 2 lines don't match original content"
+        assert new_lines[-2].strip() == lines[to_line-2].strip(), "last 2 lines don't match original content"
+        assert new_lines[-1].strip() == lines[to_line-1].strip(), "last 2 lines don't match original content"
+        lines[from_line-1:to_line] = new_lines
+
+        # Write back to file
+        with open(path, 'w') as f:
+            f.writelines(lines)
+
+        return f"Modified lines {from_line}-{to_line} in {path}"
     except Exception as e:
         return str(e)
 
@@ -250,9 +304,13 @@ def handle_tool_call(tool_call):
                 return "from_line must be an int"
             if from_line is not None and to_line is not None and from_line > to_line:
                 return "from_line cannot be after to_line"
-            lines = open(arguments["path"]).read().split("\n")
-            lines = lines[from_line : (None if to_line is None else to_line + 1)]
-            return "\n".join(lines), None
+            lines = open(arguments["path"]).readlines()
+            if from_line is not None and (from_line < 1 or from_line > len(lines)):
+                return "from_line out of range"
+            if to_line is not None and (to_line < 1 or to_line > len(lines)):
+                return "to_line out of range"
+            lines = lines[(None if from_line is None else from_line - 1) : to_line]
+            return "".join(lines), None
         except Exception as e:
             return str(e), None
     elif tool_call.function.name == "view_path":
@@ -265,6 +323,54 @@ def handle_tool_call(tool_call):
             if not os.path.isdir(arguments["path"]):
                 return "path is a plain file"
             return subprocess.getoutput(f"find {arguments['path']} -maxdepth 2"), None
+        except Exception as e:
+            return str(e), None
+    elif tool_call.function.name == "create_file":
+        try:
+            arguments = json.loads(tool_call.function.arguments)
+            if "path" not in arguments:
+                return "path not specified", None
+            if "content" not in arguments:
+                return "content not specified", None
+            if os.path.exists(arguments["path"]):
+                return "file already exists"
+            return None, PendingInput(
+                tool_call_id=tool_call.id,
+                description=f"```\n{arguments['content']}\n```",
+                callable=lambda: create_file(arguments['path'], arguments['content'])
+            )
+        except Exception as e:
+            return str(e), None
+    elif tool_call.function.name == "edit_file":
+        try:
+            arguments = json.loads(tool_call.function.arguments)
+            for k in ["path", "from_line", "to_line", "content"]:
+                assert k in arguments, f"{k} not specified"
+            path = arguments["path"]
+            assert os.path.exists(path), "file does not exist"
+            with open(path) as f:
+                existing_lines = f.readlines()
+            from_line = arguments["from_line"]
+            to_line = arguments["to_line"]
+            assert isinstance(from_line, int), "from_line must be an integer"
+            assert isinstance(to_line, int), "to_line must be an integer"
+            assert 1 <= from_line <= len(existing_lines), "from_line out of range"
+            assert 1 <= to_line <= len(existing_lines), "to_line out of range"
+            assert from_line <= to_line - 4, "the line range must span at least 4 lines"
+
+            new_lines = arguments["content"].splitlines(keepends=True)
+            assert len(new_lines) >= 4, "content must be at least 4 lines long"
+
+            assert new_lines[0].strip() == existing_lines[from_line-1].strip(), "first 2 lines don't match original content"
+            assert new_lines[1].strip() == existing_lines[from_line].strip(), "first 2 lines don't match original content"
+            assert new_lines[-2].strip() == existing_lines[to_line-2].strip(), "last 2 lines don't match original content"
+            assert new_lines[-1].strip() == existing_lines[to_line-1].strip(), "last 2 lines don't match original content"
+
+            return None, PendingInput(
+                tool_call_id=tool_call.id,
+                description=f"```\n{arguments['content']}\n```",
+                callable=lambda: edit_file(path, from_line, to_line, new_lines)
+            )
         except Exception as e:
             return str(e), None
     elif tool_call.function.name == "bash":

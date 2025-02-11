@@ -2,7 +2,13 @@
 
 Responsible for refreshing staging and production containers, and for checkpointing.
 
-To run:
+To run in a local virtual env:
+
 ```
-uvicorn server:app --reload
+python3 -m venv venv
+./venv/bin/pip install -r requirements.txt
+
+./venv/bin/python server.py
 ```
+
+TODO: only allow connections from docker and not from outside.
