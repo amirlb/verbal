@@ -1,0 +1,4 @@
+[browser]
+serverAddress = "verbal-cli.xyz"
+serverPort = 443
+gatherUsageStats = false

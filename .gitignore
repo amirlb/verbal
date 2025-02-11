@@ -1,2 +1,4 @@
 __pycache__/
 *.pyc
+.env
+/oauth2-proxy/authenticated-emails.txt
