@@ -64,11 +64,11 @@ TOOLS = [
                         "description": "The full path of the file, starting with /"
                     },
                     "from_line": {
-                        "type": "int",
+                        "type": "number",
                         "description": "Start from this line (1-based, optional)"
                     },
                     "to_line": {
-                        "type": "int",
+                        "type": "number",
                         "description": "Show content up to this line and including it (1-based, optional)"
                     }
                 },
