@@ -322,12 +322,9 @@ def handle_tool_call(tool_call):
     elif tool_call.function.name == "create_file":
         try:
             arguments = json.loads(tool_call.function.arguments)
-            if "path" not in arguments:
-                return "path not specified", None
-            if "content" not in arguments:
-                return "content not specified", None
-            if os.path.exists(arguments["path"]):
-                return "file already exists"
+            for k in ["path", "content"]:
+                assert k in arguments, f"{k} not specified"
+            assert not os.path.exists(arguments["path"]), "file already exists"
             return None, PendingInput(
                 tool_call_id=tool_call.id,
                 description=f"```\n{arguments['content']}\n```",
