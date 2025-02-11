@@ -55,13 +55,21 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "read_file",
-            "description": "Returns the contents of the file",
+            "description": "Returns the full contents of the file",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "path": {
                         "type": "string",
                         "description": "The full path of the file, starting with /"
+                    },
+                    "from_line": {
+                        "type": "int",
+                        "description": "Start from this line (1-based, optional)"
+                    },
+                    "to_line": {
+                        "type": "int",
+                        "description": "Show content up to this line and including it (1-based, optional)"
                     }
                 },
                 "required": [
@@ -72,6 +80,57 @@ TOOLS = [
             "strict": True
         }
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "view_path",
+            "description": "List files and directories two levels deep into the directory tree",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "The full path of the directory, starting with /"
+                    }
+                },
+                "required": ["path"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    # {
+    #     "type": "function",
+    #     "function": {
+    #         "name": "str_replace",
+    #         "description": "Replace occurrences of a string in a file",
+    #         "parameters": {
+    #             "type": "object",
+    #             "properties": {
+    #                 "path": {
+    #                     "type": "string",
+    #                     "description": "The full path of the file, starting with /"
+    #                 },
+    #                 "old_str": {
+    #                     "type": "string", 
+    #                     "description": "String to be replaced"
+    #                 },
+    #                 "new_str": {
+    #                     "type": "string",
+    #                     "description": "String to replace with"
+    #                 }
+    #             },
+    #             "required": [
+    #                 "path",
+    #                 "old_str", 
+    #                 "new_str"
+    #             ],
+    #             "additionalProperties": False
+    #         },
+    #         "strict": True
+    #     }
+    # },
+    # todo: create_file, replace_lines
 ]
 
 
@@ -178,7 +237,35 @@ def handle_tool_call(tool_call):
     if tool_call.function.name == "read_file":
         try:
             arguments = json.loads(tool_call.function.arguments)
-            return open(arguments["path"]).read(), None
+            if "path" not in arguments:
+                return "path not specified", None
+            if not os.path.exists(arguments["path"]):
+                return "file does not exist"
+            if os.path.isdir(arguments["path"]):
+                return "cannot read a directory"
+            from_line = arguments.get("from_line")
+            to_line = arguments.get("to_line")
+            if from_line is not None and not isinstance(from_line, int):
+                return "from_line must be an int"
+            if to_line is not None and not isinstance(to_line, int):
+                return "from_line must be an int"
+            if from_line is not None and to_line is not None and from_line > to_line:
+                return "from_line cannot be after to_line"
+            lines = open(arguments["path"]).read().split("\n")
+            lines = lines[from_line : (None if to_line is None else to_line + 1)]
+            return "\n".join(lines), None
+        except Exception as e:
+            return str(e), None
+    elif tool_call.function.name == "view_path":
+        try:
+            arguments = json.loads(tool_call.function.arguments)
+            if "path" not in arguments:
+                return "path not specified", None
+            if not os.path.exists(arguments["path"]):
+                return "directory does not exist"
+            if not os.path.isdir(arguments["path"]):
+                return "path is a plain file"
+            return subprocess.getoutput(f"find {arguments['path']} -maxdepth 2"), None
         except Exception as e:
             return str(e), None
     elif tool_call.function.name == "bash":
