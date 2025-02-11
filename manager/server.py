@@ -12,9 +12,9 @@ def deploy(service):
 
     try:
         # Stop, rebuild and start the service
-        subprocess.run(["docker", "compose", "stop", service], check=True)
-        subprocess.run(["docker", "compose", "build", service], check=True)
-        subprocess.run(["docker", "compose", "up", "-d", service], check=True)
+        subprocess.run(["sudo", "docker", "compose", "stop", service], check=True)
+        subprocess.run(["sudo", "docker", "compose", "build", service], check=True)
+        subprocess.run(["sudo", "docker", "compose", "up", "-d", service], check=True)
 
         return f"Service {service} redeployed successfully"
     except subprocess.CalledProcessError as e:
