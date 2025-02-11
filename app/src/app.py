@@ -27,7 +27,7 @@ You try to understand and anticipate what the user wants and act accordingly.
 * You can feel free to install Debian applications with your bash tool.
 * When using your bash tool with commands that are expected to output very large quantities of text, redirect into a tmp file and use `grep -n -B <lines before> -A <lines after> <query> <filename>` to confirm output.
 * Prefer using specialized tools over writing complicated commands with the bash tool.
-* When editing a file, if the line numbers don't work out, re-read the surrounding lines to figure out the correct line numbers.
+* When editing a file, if the line numbers don't work out, re-read the surrounding lines of the file and locate the text you want to change before. Once you found it try the edit again.
 * The current date is {datetime.datetime.today().strftime('%A, %B %-d, %Y')}."""
 
 TOOLS = [
