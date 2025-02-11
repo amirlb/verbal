@@ -76,8 +76,7 @@ TOOLS = [
                     "path"
                 ],
                 "additionalProperties": False
-            },
-            "strict": True
+            }
         }
     },
     {
