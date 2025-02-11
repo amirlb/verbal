@@ -2,6 +2,35 @@
 
 Documenting here in case I need to deploy again, or if somebody else uses this software.
 
+## Retrying, with a fresh Ubuntu 24.04 machine
+
+```
+sudo apt update
+sudo apt upgrade
+sudo apt install nginx python3 python3-venv libaugeas0
+sudo python3 -m venv /opt/certbot/
+sudo /opt/certbot/bin/pip install --upgrade pip
+sudo /opt/certbot/bin/pip install certbot certbot-nginx
+sudo ln -s /opt/certbot/bin/certbot /usr/bin/certbot
+sudo certbot --nginx
+
+sudo crontab -e
+    0 0,12 * * * root /opt/certbot/bin/python -c 'import random; import time; time.sleep(random.random() * 3600' && sudo certbot renew -q
+
+sudo apt install docker.io docker-compose-v2
+
+sudo apt install unzip
+wget https://github.com/amirlb/verbal/archive/refs/heads/trunk.zip
+unzip trunk.zip
+rm trunk.zip
+mv verbal-trunk verbal
+
+cd verbal/
+sudo docker compose up --build
+```
+
+and also set up the secrets and users and copy `/etc/nginx/nginx.conf` from below.
+
 ## Set up certbot, get certificates, and set up nginx
 
 I flailed quite a bit here, it definitely started with these commands

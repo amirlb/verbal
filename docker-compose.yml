@@ -12,8 +12,12 @@ services:
     volumes:
       - ./oauth2-proxy/authenticated-emails.txt:/etc/authenticated-emails.txt
       - ./assets/logo.png:/etc/verbal-logo.png
+    environment:
+      OAUTH2_PROXY_HTTP_ADDRESS: "0.0.0.0:4180"
+      OAUTH2_PROXY_UPSTREAMS: "http://verbal:8501/"
+      OAUTH2_PROXY_AUTHENTICATED_EMAILS_FILE: "/etc/authenticated-emails.txt"
+      OAUTH2_PROXY_CUSTOM_SIGN_IN_LOGO: "/etc/verbal-logo.png"
     env_file:
-      - ./oauth2-proxy/config.env
       - ./oauth2-proxy/.env
 
   # manager:
