@@ -310,12 +310,9 @@ def handle_tool_call(tool_call):
     elif tool_call.function.name == "view_path":
         try:
             arguments = json.loads(tool_call.function.arguments)
-            if "path" not in arguments:
-                return "path not specified", None
-            if not os.path.exists(arguments["path"]):
-                return "directory does not exist"
-            if not os.path.isdir(arguments["path"]):
-                return "path is a plain file"
+            assert "path" in arguments, "path not specified"
+            assert os.path.exists(arguments["path"]), "directory does not exist"
+            assert os.path.isdir(arguments["path"]), "path is a plain file"
             return subprocess.getoutput(f"find {arguments['path']} -maxdepth 2"), None
         except Exception as e:
             return str(e), None
