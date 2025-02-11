@@ -135,13 +135,11 @@ TOOLS = [
                     },
                     "from_line": {
                         "type": "integer",
-                        "description": "Replace lines starting from this line (1-based)",
-                        "minimum": 1
+                        "description": "Replace lines starting from this line (1-based)"
                     },
                     "to_line": {
                         "type": "integer",
-                        "description": "The last line of the replaced block (1-based)",
-                        "minimum": 1
+                        "description": "The last line of the replaced block (1-based)"
                     },
                     "content": {
                         "type": "string",
