@@ -20,14 +20,6 @@ services:
     env_file:
       - ./oauth2-proxy/.env
 
-  # manager:
-  #   build: ./manager
-  #   networks:
-  #     - verbal
-  #   volumes:
-  #     - ./outside:/app
-  #     - ./data:/data
-
   verbal:
     build: ./app
     networks:
@@ -36,3 +28,5 @@ services:
       - .:/verbal
     env_file:
       - ./app/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

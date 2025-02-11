@@ -1,49 +1,35 @@
 from dataclasses import dataclass
 import json
+
+import requests
+from requests import RequestException
 import streamlit as st
+from streamlit.components.v1 import html
 import os
 import subprocess
 from openai import OpenAI
-from typing import Any, Callable
+from typing import Callable
+import platform, datetime
 
 
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 model = os.getenv('OPENAI_MODEL', "gpt-4o-mini")
 
 
-SYSTEM_PROMPT = """You are a helpful assistant that operates a remote
-machine on behalf of the user when they're on their phone, and can't
-edit files or type code, only English or other natural languages.
+SYSTEM_PROMPT = f"""You are a natural language interface to controlling
+remote machines. You operate the machine on behalf of the user when they're
+on their phone and can't easily edit files or type code.
 The user accesses the assistant via a mobile app, so you need to keep
 your answers short enough to usable with a small screen.
 You try to understand and anticipate what the user wants and act accordingly.
 
-You have tools that allow you to monitor the machine and operate it. If you
-need to read a file, use the "read_file" tool. For other commands, you have
-general access to a shell via the bash tool."""
+* You are utilising an Debian virtual machine using {platform.machine()} architecture with internet access.
+* You can feel free to install Debian applications with your bash tool.
+* When using your bash tool with commands that are expected to output very large quantities of text, redirect into a tmp file and use `grep -n -B <lines before> -A <lines after> <query> <filename>` to confirm output.
+* Prefer using specialized tools over writing complicated commands with the bash tool.
+* The current date is {datetime.datetime.today().strftime('%A, %B %-d, %Y')}."""
 
 TOOLS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "read_file",
-            "description": "Returns the contents of the file",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {
-                        "type": "string",
-                        "description": "The full path of the file, starting with /"
-                    }
-                },
-                "required": [
-                    "path"
-                ],
-                "additionalProperties": False
-            },
-            "strict": True
-        }
-    },
     {
         "type": "function",
         "function": {
@@ -59,6 +45,27 @@ TOOLS = [
                 },
                 "required": [
                     "command"
+                ],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_file",
+            "description": "Returns the contents of the file",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "The full path of the file, starting with /"
+                    }
+                },
+                "required": [
+                    "path"
                 ],
                 "additionalProperties": False
             },
@@ -189,7 +196,22 @@ def handle_tool_call(tool_call):
         return f"Tool does not exist: {tool_call.function.name!r}", None
 
 
+def trigger_deployment():
+    try:
+        response = requests.post("http://host.docker.internal:8000/deploy/verbal")
+        if response.status_code == 200:
+            st.sidebar.success(response.text)
+        else:
+            st.sidebar.error(response.text)
+    except RequestException as e:
+        st.sidebar.error(f"Failed to trigger deployment: {e}")
+
+
 st.set_page_config(page_title="Verbal", layout="wide", initial_sidebar_state="collapsed")
+with st.sidebar:
+    if st.button("Re-deploy"):
+        trigger_deployment()
+        html("<script>window.location.reload(true);</script>")
 init_session_state()
 st.title("Verbal")
 
