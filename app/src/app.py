@@ -289,25 +289,20 @@ def handle_tool_call(tool_call):
     if tool_call.function.name == "read_file":
         try:
             arguments = json.loads(tool_call.function.arguments)
-            if "path" not in arguments:
-                return "path not specified", None
-            if not os.path.exists(arguments["path"]):
-                return "file does not exist"
-            if os.path.isdir(arguments["path"]):
-                return "cannot read a directory"
+            assert "path" in arguments, "path not specified"
+            assert os.path.exists(arguments["path"]), "file does not exist"
+            assert not os.path.isdir(arguments["path"]), "cannot read a directory"
             from_line = arguments.get("from_line")
             to_line = arguments.get("to_line")
-            if from_line is not None and not isinstance(from_line, int):
-                return "from_line must be an int"
-            if to_line is not None and not isinstance(to_line, int):
-                return "from_line must be an int"
-            if from_line is not None and to_line is not None and from_line > to_line:
-                return "from_line cannot be after to_line"
             lines = open(arguments["path"]).readlines()
-            if from_line is not None and (from_line < 1 or from_line > len(lines)):
-                return "from_line out of range"
-            if to_line is not None and (to_line < 1 or to_line > len(lines)):
-                return "to_line out of range"
+            if from_line is not None:
+                assert isinstance(from_line, int), "from_line must be an integer"
+                assert 1 <= from_line <= len(lines), "from_line out of range"
+            if to_line is not None:
+                assert isinstance(to_line, int), "to_line must be an integer"
+                assert 1 <= to_line <= len(lines), "to_line out of range"
+            if from_line is not None and to_line is not None:
+                assert from_line <= to_line, "from_line cannot be after to_line"
             lines = lines[(None if from_line is None else from_line - 1) : to_line]
             return "".join(lines), None
         except Exception as e:
