@@ -2,7 +2,6 @@
 Entrypoint for streamlit, see https://docs.streamlit.io/
 """
 
-import base64
 import os
 from pathlib import Path
 import traceback
@@ -11,6 +10,9 @@ from datetime import timedelta
 from enum import StrEnum
 from functools import partial
 from typing import cast
+
+import requests
+from requests import RequestException
 
 import streamlit as st
 from anthropic import RateLimitError
@@ -66,19 +68,22 @@ def setup_state():
 
 async def main():
     """Render loop for streamlit"""
-    st.set_page_config(page_title="Verbal", menu_items={"About": "Verbal by Amir Livne Bar-on"})
+    st.set_page_config(page_title="Verbal", page_icon=Path("/verbal/assets/icon.png"), menu_items={"About": "Verbal by Amir Livne Bar-on"})
     setup_state()
 
     st.markdown(STREAMLIT_STYLE, unsafe_allow_html=True)
 
-    logo_image_data = base64.b64encode(open('/verbal/assets/logo.png', 'rb').read()).decode()
-    st.title(f"![Verbal](data:image/png;base64,{logo_image_data})")
+    st.title("Verbal command line")
 
     with st.sidebar:
         if st.button("Reset", type="primary"):
             with st.spinner("Resetting..."):
                 st.session_state.clear()
                 setup_state()
+
+        if st.button("Re-deploy"):
+            trigger_deployment()
+            st.html("<script>window.location.reload(true);</script>")
 
     new_message = st.chat_input("Type your command here...")
 
@@ -131,6 +136,17 @@ async def main():
             tool_output_callback=_tool_output_callback,
             exception_callback=_render_error,
         )
+
+
+def trigger_deployment():
+    try:
+        response = requests.post("http://host.docker.internal:8000/deploy/verbal")
+        if response.status_code == 200:
+            st.sidebar.success(response.text)
+        else:
+            st.sidebar.error(response.text)
+    except RequestException as e:
+        st.sidebar.error(f"Failed to trigger deployment: {e}")
 
 
 def maybe_add_interruption_blocks():
