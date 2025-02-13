@@ -20,16 +20,23 @@ services:
     env_file:
       - ./oauth2-proxy/.env
 
-  verbal:
-    build: ./app
+  backend:
+    build: ./backend
     networks:
       - verbal
-    ports:
-      - "8501:8501"
     volumes:
       - .:/verbal
       - /home/amir/workspace:/workspace
     env_file:
-      - ./app/.env
-    # extra_hosts:
-    #   - "host.docker.internal:host-gateway"
+      - ./backend/.env
+
+  app:
+    build: ./app
+    networks:
+      - verbal
+    environment:
+      BACKEND_URL: "http://backend:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - backend

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="110" height="120">
+  <defs>
+    <style type="text/css">
+      @font-face {
+        font-family: 'RougeScript';
+        src: url('RougeScript-Regular.ttf') format('truetype');
+      }
+    </style>
+  </defs>
+  <text x="20" y="110" font-family="RougeScript" font-size="160">V</text>
+</svg>

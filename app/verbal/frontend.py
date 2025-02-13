@@ -1,31 +1,19 @@
-"""
-Entrypoint for streamlit, see https://docs.streamlit.io/
-"""
-
+import json
 import os
 from pathlib import Path
-import traceback
-from contextlib import contextmanager
 from datetime import timedelta
 from enum import StrEnum
-from functools import partial
-from typing import cast
+import traceback
+from typing import Any, TypedDict, Literal, cast
 
 import requests
 from requests import RequestException
-
 import streamlit as st
-from anthropic import RateLimitError
-from anthropic.types.beta import (
-    BetaContentBlockParam,
-    BetaTextBlockParam,
-    BetaToolResultBlockParam,
-)
 
-from .loop import sampling_loop
-from .tools import ToolResult
 
 MODEL_NAME = os.getenv("MODEL_NAME", "claude-3-5-sonnet-20241022")
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
+
 
 STREAMLIT_STYLE = """
 <style>
@@ -51,183 +39,209 @@ INTERRUPT_TOOL_ERROR = "human stopped or interrupted tool execution"
 
 class Sender(StrEnum):
     USER = "user"
-    BOT = "assistant"
-    TOOL = "tool"
+    ASSISTANT = "assistant"
 
 
-def setup_state():
+def init_session_state():
+    """Initialize session state variables."""
     if "messages" not in st.session_state:
         st.session_state.messages = []
     if "responses" not in st.session_state:
         st.session_state.responses = {}
-    if "tools" not in st.session_state:
-        st.session_state.tools = {}
-    if "in_sampling_loop" not in st.session_state:
-        st.session_state.in_sampling_loop = False
+    if "pending_tool_use_ids" not in st.session_state:
+        st.session_state.pending_tool_use_ids = []
 
 
-async def main():
-    """Render loop for streamlit"""
-    st.set_page_config(page_title="Verbal", page_icon=Path("/verbal/assets/icon.png"), menu_items={"About": "Verbal by Amir Livne Bar-on"})
-    setup_state()
+class ToolResult(TypedDict):
+    output: str
+    error: str
+    system: str
 
+
+class TextBlock(TypedDict):
+    type: Literal["text"]
+    text: str
+
+
+class ToolResultBlock(TypedDict):
+    type: Literal["tool_result"]
+    tool_use_id: str
+    result: ToolResult
+    is_error: bool
+
+
+class ToolUseBlock(TypedDict):
+    type: Literal["tool_use"]
+    id: str
+    name: str
+    input: dict[str, Any]
+
+
+ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock
+
+
+class Message(TypedDict):
+    role: Sender
+    content: ContentBlock
+
+
+def _render_message(message: Message) -> None:
+    """Render a message in the chat UI."""
+    if message["content"]["type"] == "text":
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"]["text"])
+
+    elif message["content"]["type"] == "tool_use":
+        with st.chat_message(message["role"], avatar="🛠"):
+            st.code(message["content"]["name"] + json.dumps(message["content"]["input"]))
+
+    elif message["content"]["type"] == "tool_result":
+        result = message["content"]["result"]
+        with st.chat_message("TOOL"):
+            if result["error"]:
+                st.error(result["error"])
+            else:
+                if result["system"]:
+                    st.info(result["system"])
+                if result["output"]:
+                    st.code(result["output"])
+
+
+def display_chat_history() -> None:
+    """Display the chat history."""
+    for message in st.session_state.messages:
+        _render_message(message)
+
+
+def setup_page() -> None:
+    """Initialize the page configuration and styling."""
+    st.set_page_config(
+        page_title="Verbal",
+        page_icon=Path("/verbal/assets/icon.png"),
+        menu_items={"About": "Verbal by Amir Livne Bar-on"},
+    )
     st.markdown(STREAMLIT_STYLE, unsafe_allow_html=True)
-
     st.title("Verbal command line")
 
+
+def setup_sidebar() -> None:
+    """Setup the sidebar with reset and re-deploy buttons."""
     with st.sidebar:
         if st.button("Reset", type="primary"):
             with st.spinner("Resetting..."):
                 st.session_state.clear()
-                setup_state()
+                init_session_state()
 
         if st.button("Re-deploy"):
             trigger_deployment()
             st.html("<script>window.location.reload(true);</script>")
 
-    new_message = st.chat_input("Type your command here...")
 
-    # render past chats
-    for message in st.session_state.messages:
-        if isinstance(message["content"], str):
-            _render_message(message["role"], message["content"])
-        elif isinstance(message["content"], list):
-            for block in message["content"]:
-                # the tool result we send back to the Anthropic API isn't sufficient to render all details,
-                # so we store the tool use responses
-                if isinstance(block, dict) and block["type"] == "tool_result":
-                    _render_message(
-                        Sender.TOOL, st.session_state.tools[block["tool_use_id"]]
-                    )
-                else:
-                    _render_message(
-                        message["role"],
-                        cast(BetaContentBlockParam | ToolResult, block),
-                    )
+def process_new_message(new_message: str) -> None:
+    """Process and display a new user message."""
+    message = Message(role=Sender.USER, content=TextBlock(type="text", text=new_message))
+    st.session_state.messages.append(message)
+    _render_message(message)
 
-    # render past chats
-    if new_message:
-        st.session_state.messages.append(
-            {
-                "role": Sender.USER,
-                "content": [
-                    *maybe_add_interruption_blocks(),
-                    BetaTextBlockParam(type="text", text=new_message),
-                ],
-            }
+
+def handle_sse_event(event_data: str) -> None:
+    """Handle a single SSE event and update the UI accordingly."""
+    if not event_data.startswith("data: "):
+        return
+
+    data = json.loads(event_data[6:])  # Skip "data: " prefix
+
+    if data["type"] == "error":
+        st.error(data["text"], icon="🚨")
+        return
+
+    if data["type"] == "text":
+        message = Message(role=Sender.ASSISTANT, content=TextBlock(type="text", text=data["text"]))
+        st.session_state.messages.append(message)
+        _render_message(message)
+
+    if data["type"] == "tool_use":
+        message = Message(
+            role=Sender.ASSISTANT,
+            content=ToolUseBlock(
+                type="tool_use", id=data["id"], name=data["name"], input=data["input"]
+            ),
         )
-        _render_message(Sender.USER, new_message)
+        st.session_state.messages.append(message)
+        _render_message(message)
+        st.session_state.pending_tool_use_ids.append(data["id"])
+
+    elif data["type"] == "tool_result":
+        message = Message(
+            role=Sender.USER,
+            content=ToolResultBlock(
+                type="tool_result",
+                tool_use_id=data["tool_use_id"],
+                result=data["result"],
+                is_error=bool(data["result"]["error"]),
+            ),
+        )
+        st.session_state.messages.append(message)
+        _render_message(message)
+        st.session_state.pending_tool_use_ids.remove(data["tool_use_id"])
+
+
+def process_chat_response():
+    """Process the chat response from the backend."""
+    response = requests.post(
+        f"{BACKEND_URL}/chat",
+        json={"messages": st.session_state.messages},
+        stream=True,
+        headers={"Accept": "text/event-stream"},
+    )
+    response.raise_for_status()
+
+    for line in response.iter_lines():
+        if line:
+            handle_sse_event(line.decode())
+
+
+async def main():
+    """Render loop for streamlit"""
+    setup_page()
+    init_session_state()
+    display_chat_history()
+
+    setup_sidebar()
+
+    new_message = st.chat_input("Type your command here...")
+    if not new_message:
+        return
+
+    process_new_message(new_message)
+    for tool_use_id in st.session_state.pending_tool_use_ids:
+        st.session_state.messages.append(
+            Message(
+                role=Sender.USER,
+                content=ToolResultBlock(
+                    type="tool_result",
+                    tool_use_id=tool_use_id,
+                    content=INTERRUPT_TOOL_ERROR,
+                    is_error=True,
+                ),
+            )
+        )
+    st.session_state.pending_tool_use_ids = []
 
     try:
-        most_recent_message = st.session_state["messages"][-1]
-    except IndexError:
-        return
-
-    if most_recent_message["role"] is not Sender.USER:
-        # we don't have a user message to respond to, exit early
-        return
-
-    with track_sampling_loop():
-        # run the agent sampling loop with the newest message
-        st.session_state.messages = await sampling_loop(
-            model=MODEL_NAME,
-            messages=st.session_state.messages,
-            output_callback=partial(_render_message, Sender.BOT),
-            tool_output_callback=_tool_output_callback,
-            exception_callback=_render_error,
-        )
+        while st.session_state.messages[-1]["role"] != Sender.ASSISTANT:
+            process_chat_response()
+    except Exception:
+        st.error(traceback.format_exc(), icon="🚨")
 
 
 def trigger_deployment():
+    """Trigger a deployment of the service."""
     try:
         response = requests.post("http://host.docker.internal:8000/deploy/verbal")
-        if response.status_code == 200:
+        if response.status_code == requests.codes.ok:
             st.sidebar.success(response.text)
         else:
             st.sidebar.error(response.text)
     except RequestException as e:
         st.sidebar.error(f"Failed to trigger deployment: {e}")
-
-
-def maybe_add_interruption_blocks():
-    if not st.session_state.in_sampling_loop:
-        return []
-    # If this function is called while we're in the sampling loop, we can assume that the previous sampling loop was interrupted
-    # and we should annotate the conversation with additional context for the model and heal any incomplete tool use calls
-    result = []
-    last_message = st.session_state.messages[-1]
-    previous_tool_use_ids = [
-        block["id"] for block in last_message["content"] if block["type"] == "tool_use"
-    ]
-    for tool_use_id in previous_tool_use_ids:
-        st.session_state.tools[tool_use_id] = ToolResult(error=INTERRUPT_TOOL_ERROR)
-        result.append(
-            BetaToolResultBlockParam(
-                tool_use_id=tool_use_id,
-                type="tool_result",
-                content=INTERRUPT_TOOL_ERROR,
-                is_error=True,
-            )
-        )
-    result.append(BetaTextBlockParam(type="text", text=INTERRUPT_TEXT))
-    return result
-
-
-@contextmanager
-def track_sampling_loop():
-    st.session_state.in_sampling_loop = True
-    yield
-    st.session_state.in_sampling_loop = False
-
-
-def _tool_output_callback(tool_output: ToolResult, tool_id: str):
-    """Handle a tool output by storing it to state and rendering it."""
-    st.session_state.tools[tool_id] = tool_output
-    _render_message(Sender.TOOL, tool_output)
-
-
-def _render_error(error: Exception):
-    if isinstance(error, RateLimitError):
-        body = "You have been rate limited."
-        if retry_after := error.response.headers.get("retry-after"):
-            body += f" **Retry after {str(timedelta(seconds=int(retry_after)))} (HH:MM:SS).** See our API [documentation](https://docs.anthropic.com/en/api/rate-limits) for more details."
-        body += f"\n\n{error.message}"
-    else:
-        body = str(error)
-        body += "\n\n**Traceback:**"
-        lines = "\n".join(traceback.format_exception(error))
-        body += f"\n\n```{lines}```"
-    st.error(f"**{error.__class__.__name__}**\n\n{body}", icon=":material/error:")
-    # TODO: save an error log to /var/log/verbal
-    # save_to_storage(f"error_{datetime.now().timestamp()}.md", body)
-
-
-def _render_message(
-    sender: Sender,
-    message: str | BetaContentBlockParam | ToolResult,
-):
-    """Convert input from the user or output from the agent to a streamlit message."""
-    # streamlit's hotreloading breaks isinstance checks, so we need to check for class names
-    is_tool_result = not isinstance(message, str | dict)
-    if not message:
-        return
-    with st.chat_message(sender, avatar="🛠️" if sender == Sender.BOT and message["type"] == "tool_use" else None):
-        if is_tool_result:
-            message = cast(ToolResult, message)
-            if message.output:
-                if message.__class__.__name__ == "CLIResult":
-                    st.code(message.output)
-                else:
-                    st.markdown(message.output)
-            if message.error:
-                st.error(message.error)
-        elif isinstance(message, dict):
-            if message["type"] == "text":
-                st.write(message["text"])
-            elif message["type"] == "tool_use":
-                st.code(f'Tool Use: {message["name"]}\nInput: {message["input"]}')
-            else:
-                # only expected return types are text and tool_use
-                raise Exception(f'Unexpected response type {message["type"]}')
-        else:
-            st.markdown(message)
