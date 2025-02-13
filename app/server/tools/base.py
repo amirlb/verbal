@@ -49,6 +49,10 @@ class ToolResult:
         """Returns a new ToolResult with the given fields replaced."""
         return replace(self, **kwargs)
 
+    def __str__(self):
+        system_prefix = f"<system>{self.system}</system>" if self.system else ""
+        return f"{system_prefix}{self.output or self.error or ""}"
+
 
 class CLIResult(ToolResult):
     """A ToolResult that can be rendered as a CLI output."""

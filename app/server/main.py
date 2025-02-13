@@ -1,0 +1,182 @@
+"""
+FastAPI backend service that implements the agent loop with Server-Sent Events (SSE).
+"""
+
+from datetime import datetime, timedelta
+import json
+import os
+import platform
+import traceback
+from typing import Any, AsyncGenerator, cast
+
+from anthropic import (
+    AsyncAnthropic,
+    RateLimitError,
+)
+from anthropic.types import (
+    MessageParam,
+    TextBlockParam,
+    ToolResultBlockParam,
+    ToolUseBlockParam,
+)
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from sse_starlette.sse import EventSourceResponse
+
+from .tools import BashTool, EditTool, ToolCollection
+
+
+# This system prompt is optimized for the Docker environment in this repository and
+# specific tool combinations enabled.
+# We encourage modifying this system prompt to ensure the model has context for the
+# environment it is running in, and to provide any additional information that may be
+# helpful for the task at hand.
+SYSTEM_PROMPT = f"""<SYSTEM_CAPABILITY>
+You are a natural language interface to controlling remote machines. You operate the machine on behalf of the user when they're on their phone and can't easily edit files or type code.
+The user accesses the assistant via a mobile app, so you need to keep your answers short enough to usable with a small screen. You try to understand and anticipate what the user wants and act accordingly.
+
+* You are utilising an Ubuntu virtual machine using {platform.machine()} architecture with internet access.
+* You can feel free to install Ubuntu applications with your bash tool. Use curl instead of wget.
+* When using your bash tool with commands that are expected to output very large quantities of text, redirect into a tmp file and use str_replace_editor or `grep -n -B <lines before> -A <lines after> <query> <filename>` to confirm output.
+* Most of the user's projects are stored in `/workspace` directory. Your own code is in the `/verbal` directory.
+* Prefer using specialized tools over writing complicated commands with the bash tool.
+* There is no need to tell the user what tools you are using. They can see for themselves in a sidebar.
+* The current date is {datetime.today().strftime('%A, %B %-d, %Y')}.
+</SYSTEM_CAPABILITY>"""
+
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+MODEL_NAME = os.getenv("MODEL_NAME", "claude-3-5-sonnet-20241022")
+
+
+app = FastAPI(title="Verbal")
+
+# Enable CORS for the frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, replace with your frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# Global dictionary to store conversation history for each session
+# In a production environment, this should be replaced with a proper database
+conversation_history: dict[str, list[MessageParam]] = {}
+
+async def get_session_id(request: Request) -> str:
+    """Get or create a session ID for the request."""
+    session_id = request.cookies.get("session_id")
+    if not session_id:
+        # In a real application, you'd want to generate a secure random session ID
+        session_id = os.urandom(16).hex()
+    return session_id
+
+async def agent_loop(
+    messages: list[MessageParam],
+) -> AsyncGenerator[str, None]:
+    """Agent loop that processes messages and yields events for SSE."""
+    tool_collection = ToolCollection(
+        BashTool(),
+        EditTool(),
+    )
+
+    client = AsyncAnthropic(api_key=ANTHROPIC_API_KEY, max_retries=4)
+
+    while messages[-1]["role"] == "user":
+        try:
+            response = await client.messages.create(
+                max_tokens=4096,
+                messages=messages,
+                model=MODEL_NAME,
+                system=SYSTEM_PROMPT,
+            tools=tool_collection.to_params(),
+        )
+        except Exception as e:
+            yield json.dumps({"type": "error", "messages": str(messages)})
+            yield json.dumps({"type": "error", "message": exception_to_error_message(e)})
+            break
+
+        for block in response.content:
+            if block.type == "text":
+                text_block = TextBlockParam(type="text", text=block.text)
+                messages.append(MessageParam(role="assistant", content=[text_block]))
+                yield json.dumps(text_block)
+            elif block.type == "tool_use":
+                use_block = ToolUseBlockParam(
+                    type="tool_use",
+                    id=block.id,
+                    name=block.name,
+                    input=block.input
+                )
+                messages.append(MessageParam(role="assistant", content=[use_block]))
+                yield json.dumps(use_block)
+                result = await tool_collection.run(
+                    name=block.name,
+                    tool_input=cast(dict[str, Any], block.input),
+                )
+                result_block = ToolResultBlockParam(
+                    type="tool_result",
+                    tool_use_id=block.id,
+                    content=str(result),
+                    is_error=bool(result.error),
+                )
+                messages.append(MessageParam(role="user", content=[result_block]))
+                yield json.dumps(result_block)
+            else:
+                yield json.dumps({"type": "error", "message": f"Unexpected block type: {block.type}"})
+                break
+
+
+def exception_to_error_message(e: Exception) -> str:
+    if isinstance(e, RateLimitError):
+        body = "You have been rate limited."
+        if retry_after := e.response.headers.get("retry-after"):
+            body += f" **Retry after {str(timedelta(seconds=int(retry_after)))} (HH:MM:SS).** See our API [documentation](https://docs.anthropic.com/en/api/rate-limits) for more details."
+        body += f"\n\n{e.message}"
+        return body
+    else:
+        return traceback.format_exc()
+
+
+api = FastAPI(title="Verbal API")
+
+@api.post("/chat")
+async def chat_endpoint(request: Request) -> EventSourceResponse:
+    """Chat endpoint that returns a Server-Sent Events stream."""
+    data = await request.json()
+    session_id = await get_session_id(request)
+    
+    # Initialize conversation history for new sessions
+    if session_id not in conversation_history:
+        conversation_history[session_id] = []
+    
+    # Add the new user message to the conversation history
+    assert data["type"] == "text"
+    user_message = MessageParam(
+        role="user",
+        content=[TextBlockParam(type="text", text=data["text"])],
+    )
+    conversation_history[session_id].append(user_message)
+
+    response = EventSourceResponse(
+        agent_loop(conversation_history[session_id]),
+        media_type="text/event-stream",
+    )
+    
+    # Set session cookie in response
+    response.set_cookie(key="session_id", value=session_id, httponly=True)
+    return response
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "ok"}
+
+# Mount the API under /api
+app.mount("/api", api)
+
+# Serve static files at root
+app.mount("/", StaticFiles(directory="/verbal/app/static", html=True), name="static")

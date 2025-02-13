@@ -10,33 +10,25 @@ services:
     ports:
       - "4180:4180"
     volumes:
-      - ./oauth2-proxy/authenticated-emails.txt:/etc/authenticated-emails.txt
-      - ./assets/logo.png:/etc/verbal-logo.png
+      - ./oauth2-proxy:/etc/oauth2-proxy
     environment:
       OAUTH2_PROXY_HTTP_ADDRESS: "0.0.0.0:4180"
       OAUTH2_PROXY_UPSTREAMS: "http://verbal:8501/"
-      OAUTH2_PROXY_AUTHENTICATED_EMAILS_FILE: "/etc/authenticated-emails.txt"
-      OAUTH2_PROXY_CUSTOM_SIGN_IN_LOGO: "/etc/verbal-logo.png"
+      OAUTH2_PROXY_AUTHENTICATED_EMAILS_FILE: "/etc/oauth2-proxy/authenticated-emails.txt"
+      OAUTH2_PROXY_CUSTOM_SIGN_IN_LOGO: "/etc/oauth2-proxy/verbal-logo.png"
     env_file:
       - ./oauth2-proxy/.env
 
-  backend:
-    build: ./backend
+  verbal:
+    build: ./app
     networks:
       - verbal
+    ports:
+      - "3000:3000"
     volumes:
       - .:/verbal
       - /home/amir/workspace:/workspace
     env_file:
-      - ./backend/.env
-
-  app:
-    build: ./app
-    networks:
-      - verbal
-    environment:
-      BACKEND_URL: "http://backend:8000"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    depends_on:
-      - backend
+      - ./app/.env
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
