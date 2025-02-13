@@ -2,55 +2,49 @@
 
 Documenting here in case I need to deploy again, or if somebody else uses this software.
 
-## Retrying, with a fresh Ubuntu 24.04 machine
+Get a fresh EC2 with Ubuntu 24.04.
 
+## Basic setup
 ```
 sudo apt update
 sudo apt upgrade
-sudo apt install nginx python3 python3-venv libaugeas0
+sudo apt install nginx python3 python3-venv libaugeas0 docker.io docker-compose-v2 unzip
+```
+
+## SSL certificate
+
+Install and run Certbot for the initial certificate
+```
 sudo python3 -m venv /opt/certbot/
 sudo /opt/certbot/bin/pip install --upgrade pip
 sudo /opt/certbot/bin/pip install certbot certbot-nginx
 sudo ln -s /opt/certbot/bin/certbot /usr/bin/certbot
 sudo certbot --nginx
+```
 
-sudo crontab -e
-    0 0,12 * * * root /opt/certbot/bin/python -c 'import random; import time; time.sleep(random.random() * 3600' && sudo certbot renew -q
+Then run `sudo crontab -e` and add the following line for periodic renewal:
+```
+0 0,12 * * * root /opt/certbot/bin/python -c 'import random; import time; time.sleep(random.random() * 3600' && sudo certbot renew -q
+```
 
-sudo apt install docker.io docker-compose-v2
+## Install Verbal
 
-sudo apt install unzip
-wget https://github.com/amirlb/verbal/archive/refs/heads/trunk.zip
-unzip trunk.zip
-rm trunk.zip
-mv verbal-trunk verbal
-
+First get the code
+```
+git clone https://github.com/amirlb/verbal.git
 cd verbal/
-sudo docker compose up --build
 ```
 
-and also set up the secrets and users and copy `/etc/nginx/nginx.conf` from below.
+Create an `oauth2-proxy` directory with `.env` for the OpenID secrets, and
+`authenticated-emails.txt` for the access list.
 
-## Set up certbot, get certificates, and set up nginx
+Add the AI API secrets in
+`app/.env`.
 
-I flailed quite a bit here, it definitely started with these commands
+## Setup nginx
 
-```
-sudo yum install nginx
-sudo yum install python3-pip
-sudo pip3 install certbot certbot-nginx
-```
-
-but then I had problems with the nginx conf somehow and couldn't get certbot to work.
-
-I think for some reason the nginx conf was broken, eventually I copied the default nginx conf
-and then certbot was able to run. I think the successful command line was 
-
-```
-sudo certbot --nginx -d verbal-cli.xyz,www.verbal-cli.xyz
-```
-
-In any case, the final version of  `/etc/nginx/nginx.conf` is
+Put this in `/etc/nginx/nginx.conf`, with the correct domain. Redirects HTTP
+to HTTPS and proxies to the docker container.
 
 ```
 events {
@@ -86,71 +80,14 @@ http {
 }
 ```
 
-This does not include periodic renewals, would be fun when that's needed.
+## Upgrade / launch Verbal
 
-## Set up oauth2-proxy
-
-Install:
-
+Update:
 ```
-OAUTH2_PROXY_VERSION=$(curl -s https://api.github.com/repos/oauth2-proxy/oauth2-proxy/releases/latest | grep "tag_name" | cut -d '"' -f 4 | sed 's/v//')
-wget https://github.com/oauth2-proxy/oauth2-proxy/releases/download/v${OAUTH2_PROXY_VERSION}/oauth2-proxy-v${OAUTH2_PROXY_VERSION}.linux-amd64.tar.gz
-tar xzvf oauth2-proxy-v${OAUTH2_PROXY_VERSION}.linux-amd64.tar.gz
-sudo mv oauth2-proxy-v${OAUTH2_PROXY_VERSION}.linux-amd64/oauth2-proxy /usr/local/bin/
-sudo chmod +x /usr/local/bin/oauth2-proxy
+git pull
 ```
 
-Configure:
-
+Run:
 ```
-sudo mkdir /etc/oauth2-proxy
-sudo nano /etc/oauth2-proxy/oauth2-proxy.cfg
-sudo nano /etc/oauth2-proxy/authenticated-emails
-sudo mv logo.png /etc/oauth2-proxy/
-```
-
-```
-sudo useradd --system --no-create-home --shell /sbin/nologin oauth2proxy
-sudo chown oauth2proxy:oauth2proxy /etc/oauth2-proxy/*
-sudo chmod 600 /etc/oauth2-proxy/*
-sudo mkdir -p /var/lib/oauth2-proxy
-sudo chown oauth2proxy:oauth2proxy /var/lib/oauth2-proxy
-sudo chmod 700 /var/lib/oauth2-proxy
-
-sudo tee /etc/systemd/system/oauth2-proxy.service > /dev/null <<EOF
-[Unit]
-Description=oauth2-proxy
-After=network.target
-
-[Service]
-ExecStart=/usr/local/bin/oauth2-proxy --config=/etc/oauth2-proxy/oauth2-proxy.cfg
-Restart=always
-User=oauth2proxy
-Group=oauth2proxy
-WorkingDirectory=/var/lib/oauth2-proxy
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-sudo systemctl daemon-reload
-sudo systemctl enable oauth2-proxy
-sudo systemctl start oauth2-proxy
-```
-
-Verify running with no errors:
-
-```
-sudo journalctl -u oauth2-proxy -f
-```
-
-## Set up docker
-
-```
-sudo yum install -y docker
-sudo systemctl start docker
-sudo systemctl enable docker
-
-docker build -t verbal .
-docker run -p 8501:8501 -it verbal
+sudo docker compose up --build
 ```

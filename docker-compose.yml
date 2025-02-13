@@ -24,9 +24,12 @@ services:
     build: ./app
     networks:
       - verbal
+    ports:
+      - "8501:8501"
     volumes:
       - .:/verbal
+      - /home/amir/workspace:/workspace
     env_file:
       - ./app/.env
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
