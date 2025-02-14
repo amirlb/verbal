@@ -110,6 +110,13 @@
       white-space: pre-wrap;
       color: var(--base3);
     }
+    .error-message {
+      background: var(--red);
+      padding: 10px;
+      border-radius: 4px;
+      font-family: monospace;
+      margin: 10px 0;
+    }
     .user {
       margin: 10px 0px;
       padding: 10px;
@@ -149,10 +156,14 @@
       border: 1px solid var(--base01);
       border-radius: 4px;
       background: var(--base03);
-      color: var(--base1);
+      color: var(--base2);
     }
     #messageInput::placeholder {
       color: var(--base01);
+    }
+    #messageInput:focus {
+      outline: none;
+      border-color: var(--base1);
     }
     #sendButton {
       padding: 10px 20px;
@@ -183,7 +194,6 @@
         <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454"/>
       </svg>
     </button>
-    <a href="about.html">About</a>
     <button id="restartButton">Restart</button>
   </header>
   <div id="conversation">
@@ -303,6 +313,14 @@
             const toolCall = document.createElement('span');
             toolCall.textContent = `${message.name}: ${JSON.stringify(message.input)}`;
             elt.appendChild(toolCall);
+            return elt;
+          }
+
+        case 'error':
+          {
+            const elt = document.createElement('pre');
+            elt.className = 'message error-message';
+            elt.textContent = message.message;
             return elt;
           }
       }
