@@ -13,7 +13,7 @@ services:
       - ./oauth2-proxy:/etc/oauth2-proxy
     environment:
       OAUTH2_PROXY_HTTP_ADDRESS: "0.0.0.0:4180"
-      OAUTH2_PROXY_UPSTREAMS: "http://verbal:8501/"
+      OAUTH2_PROXY_UPSTREAMS: "http://verbal:3000/"
       OAUTH2_PROXY_AUTHENTICATED_EMAILS_FILE: "/etc/oauth2-proxy/authenticated-emails.txt"
       OAUTH2_PROXY_CUSTOM_SIGN_IN_LOGO: "/etc/oauth2-proxy/verbal-logo.png"
     env_file:
@@ -27,8 +27,8 @@ services:
       - "3000:3000"
     volumes:
       - .:/verbal
-      - /home/amir/workspace:/workspace
+      - ./workspace:/workspace
     env_file:
       - ./app/.env
-    # extra_hosts:
-    #   - "host.docker.internal:host-gateway"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

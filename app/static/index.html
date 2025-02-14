@@ -321,7 +321,7 @@
       input.value = "";
 
       handleEventStream(
-        "http://localhost:3000/api/chat",
+        "/api/chat",
         {type: "text", text: messageText},
         handleChatResponse,
         () => {document.getElementById('spinner').remove()}
