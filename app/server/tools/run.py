@@ -37,6 +37,4 @@ async def run(
             process.kill()
         except ProcessLookupError:
             pass
-        raise TimeoutError(
-            f"Command '{cmd}' timed out after {timeout} seconds"
-        ) from exc
+        raise TimeoutError(f"Command '{cmd}' timed out after {timeout} seconds") from exc

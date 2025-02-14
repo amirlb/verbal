@@ -66,9 +66,7 @@ class _BashSession:
         assert self._process.stderr
 
         # send command to the process
-        self._process.stdin.write(
-            command.encode() + f"; echo '{self._sentinel}'\n".encode()
-        )
+        self._process.stdin.write(command.encode() + f"; echo '{self._sentinel}'\n".encode())
         await self._process.stdin.drain()
 
         # read output from the process, until the sentinel is found
@@ -117,9 +115,7 @@ class BashTool(BaseAnthropicTool):
         self._session = None
         super().__init__()
 
-    async def __call__(
-        self, command: str | None = None, restart: bool = False, **kwargs
-    ):
+    async def __call__(self, command: str | None = None, restart: bool = False, **kwargs):
         if restart:
             if self._session:
                 self._session.stop()

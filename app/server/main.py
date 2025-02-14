@@ -42,7 +42,7 @@ The user accesses the assistant via a mobile app, so you need to keep your answe
 * Most of the user's projects are stored in `/workspace` directory. Your own code is in the `/verbal` directory.
 * Prefer using specialized tools over writing complicated commands with the bash tool.
 * There is no need to tell the user what tools you are using. They can see for themselves in a sidebar.
-* The current date is {datetime.today().strftime('%A, %B %-d, %Y')}.
+* The current date is {datetime.today().strftime("%A, %B %-d, %Y")}.
 </SYSTEM_CAPABILITY>"""
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
@@ -65,6 +65,7 @@ app.add_middleware(
 # In a production environment, this should be replaced with a proper database
 conversation_history: dict[str, list[MessageParam]] = {}
 
+
 async def get_session_id(request: Request) -> str:
     """Get or create a session ID for the request."""
     session_id = request.cookies.get("session_id")
@@ -72,6 +73,7 @@ async def get_session_id(request: Request) -> str:
         # In a real application, you'd want to generate a secure random session ID
         session_id = os.urandom(16).hex()
     return session_id
+
 
 async def agent_loop(
     messages: list[MessageParam],
@@ -91,10 +93,9 @@ async def agent_loop(
                 messages=messages,
                 model=MODEL_NAME,
                 system=SYSTEM_PROMPT,
-            tools=tool_collection.to_params(),
-        )
+                tools=tool_collection.to_params(),
+            )
         except Exception as e:
-            yield json.dumps({"type": "error", "messages": str(messages)})
             yield json.dumps({"type": "error", "message": exception_to_error_message(e)})
             break
 
@@ -105,10 +106,7 @@ async def agent_loop(
                 yield json.dumps(text_block)
             elif block.type == "tool_use":
                 use_block = ToolUseBlockParam(
-                    type="tool_use",
-                    id=block.id,
-                    name=block.name,
-                    input=block.input
+                    type="tool_use", id=block.id, name=block.name, input=block.input
                 )
                 messages.append(MessageParam(role="assistant", content=[use_block]))
                 yield json.dumps(use_block)
@@ -125,7 +123,9 @@ async def agent_loop(
                 messages.append(MessageParam(role="user", content=[result_block]))
                 yield json.dumps(result_block)
             else:
-                yield json.dumps({"type": "error", "message": f"Unexpected block type: {block.type}"})
+                yield json.dumps(
+                    {"type": "error", "message": f"Unexpected block type: {block.type}"}
+                )
                 break
 
 
@@ -133,7 +133,8 @@ def exception_to_error_message(e: Exception) -> str:
     if isinstance(e, RateLimitError):
         body = "You have been rate limited."
         if retry_after := e.response.headers.get("retry-after"):
-            body += f" **Retry after {str(timedelta(seconds=int(retry_after)))} (HH:MM:SS).** See our API [documentation](https://docs.anthropic.com/en/api/rate-limits) for more details."
+            body += f" **Retry after {timedelta(seconds=int(retry_after))} (HH:MM:SS).** "
+            body += "See our API [documentation](https://docs.anthropic.com/en/api/rate-limits) for more details."
         body += f"\n\n{e.message}"
         return body
     else:
@@ -142,16 +143,17 @@ def exception_to_error_message(e: Exception) -> str:
 
 api = FastAPI(title="Verbal API")
 
+
 @api.post("/chat")
 async def chat_endpoint(request: Request) -> EventSourceResponse:
     """Chat endpoint that returns a Server-Sent Events stream."""
     data = await request.json()
     session_id = await get_session_id(request)
-    
+
     # Initialize conversation history for new sessions
     if session_id not in conversation_history:
         conversation_history[session_id] = []
-    
+
     # Add the new user message to the conversation history
     assert data["type"] == "text"
     user_message = MessageParam(
@@ -164,7 +166,7 @@ async def chat_endpoint(request: Request) -> EventSourceResponse:
         agent_loop(conversation_history[session_id]),
         media_type="text/event-stream",
     )
-    
+
     # Set session cookie in response
     response.set_cookie(key="session_id", value=session_id, httponly=True)
     return response
@@ -174,6 +176,7 @@ async def chat_endpoint(request: Request) -> EventSourceResponse:
 async def health_check():
     """Health check endpoint."""
     return {"status": "ok"}
+
 
 # Mount the API under /api
 app.mount("/api", api)

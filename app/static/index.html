@@ -6,34 +6,22 @@
   <title>Verbal Chat</title>
   <link rel="icon" type="image/png" href="/favicon.png">
   <style>
-    /* Theme variables */
-    :root[data-theme="dark"] {
-      --base03: #002b36;
-      --base02: #073642;
-      --base01: #586e75;
-      --base00: #657b83;
-      --base0: #839496;
-      --base1: #93a1a1;
-      --base2: #eee8d5;
-      --base3: #fdf6e3;
+    /* Solarized theme */
+    :root {
+      --base03: light-dark(#fdf6e3, #002b36);
+      --base02: light-dark(#eee8d5, #073642);
+      --base01: light-dark(#93a1a1, #586e75);
+      --base00: light-dark(#839496, #657b83);
+      --base0: light-dark(#657b83, #839496);
+      --base1: light-dark(#586e75, #93a1a1);
+      --base2: light-dark(#073642, #eee8d5);
+      --base3: light-dark(#002b36, #fdf6e3);
       --blue: #268bd2;
       --cyan: #2aa198;
+      --orange: #cb4b16;
+      --red: #dc322f;
     }
 
-    :root[data-theme="light"] {
-      --base03: #fdf6e3;
-      --base02: #eee8d5;
-      --base01: #93a1a1;
-      --base00: #839496;
-      --base0: #657b83;
-      --base1: #586e75;
-      --base2: #073642;
-      --base3: #002b36;
-      --blue: #268bd2;
-      --cyan: #2aa198;
-    }
-
-    /* Mobile-first styling */
     body, html {
       margin: 0;
       padding: 0;
@@ -78,12 +66,18 @@
       height: 20px;
       stroke: var(--base1);
       fill: none;
-      stroke-width: 2;
       stroke-linecap: round;
       stroke-linejoin: round;
     }
-    #themeToggle .moon-icon {
-      display: none;
+    #themeToggle #sun-icon {
+      stroke-width: 3;
+      #sun {
+        stroke: none;
+        fill: var(--base1);
+      }
+    }
+    #themeToggle #moon-icon {
+      stroke-width: 2;
     }
     #container {
       display: flex;
@@ -137,7 +131,7 @@
     #sendButton {
       padding: 10px 20px;
       margin-left: 10px;
-      background: var(--blue);
+      background: var(--orange);
       color: var(--base3);
       border: none;
       border-radius: 4px;
@@ -145,36 +139,24 @@
       cursor: pointer;
     }
     #sendButton:hover {
-      background: var(--cyan);
-    }
-    /* Desktop adjustments */
-    @media (min-width: 768px) {
-      #conversation {
-        padding: 20px;
-      }
-      #messageInput, #sendButton {
-        font-size: 18px;
-      }
+      background: var(--red);
     }
   </style>
 </head>
 <body>
   <header>
-    <div>
-      <strong>Verbal Chat</strong>
-    </div>
-    <div>
-      <button id="themeToggle">
-        <svg class="sun-icon" viewBox="0 0 24 24">
-          <path d="M12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3zm0-2V4m0 16v-3M4 12H1m22 0h-3M5.64 5.64L3.5 3.5m16.36.14l-2.14 2.14M5.64 18.36L3.5 20.5m16.36-.14l-2.14-2.14"/>
-        </svg>
-        <svg class="moon-icon" viewBox="0 0 24 24">
-          <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z"/>
-        </svg>
-      </button>
-      <a href="about.html">About</a>
-      <button id="restartButton">Restart</button>
-    </div>
+    <span style="font-size: 24px; font-weight: bold; flex-grow: 1;">Verbal Chat</span>
+    <button id="themeToggle">
+      <svg id="sun-icon" viewBox="0 0 24 24">
+        <path d="M18 12a6 6 0 1 1-12 0 6 6 0 1 1 12 0z" id="sun" />
+        <path d="M20.315 15.444 L22.163 16.21 M15.444 20.315 L16.21 22.163 M8.5558 20.315 L7.7905 22.163 M3.6851 15.444 L1.8373 16.21 M3.6851 8.5558 L1.8373 7.7905 M8.5558 3.6851 L7.7905 1.8373 M15.444 3.6851 L16.21 1.8373 M20.315 8.5558 L22.163 7.7905"/>
+      </svg>
+      <svg id="moon-icon" viewBox="0 0 24 24">
+        <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454"/>
+      </svg>
+    </button>
+    <a href="about.html">About</a>
+    <button id="restartButton">Restart</button>
   </header>
   <div id="container">
     <div id="conversation">
@@ -188,10 +170,17 @@
     </form>
   </div>
   <script>
+    "use strict";
     // Theme handling
-    const root = document.documentElement;
     const themeToggle = document.getElementById('themeToggle');
-    
+
+    function setTheme(theme) {
+      document.body.style.colorScheme = theme;
+      localStorage.setItem('theme', theme);
+      document.getElementById('sun-icon').style.display = theme === 'dark' ? 'none' : 'block';
+      document.getElementById('moon-icon').style.display = theme === 'dark' ? 'block' : 'none';
+    }
+
     // Check for saved theme preference, otherwise use system preference
     const savedTheme = localStorage.getItem('theme');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -199,26 +188,10 @@
     
     // Set initial theme
     setTheme(defaultTheme);
-    
-    function setTheme(theme) {
-      root.setAttribute('data-theme', theme);
-      localStorage.setItem('theme', theme);
-      
-      // Update toggle button icons
-      const sunIcon = themeToggle.querySelector('.sun-icon');
-      const moonIcon = themeToggle.querySelector('.moon-icon');
-      if (theme === 'dark') {
-        sunIcon.style.display = 'none';
-        moonIcon.style.display = 'block';
-      } else {
-        sunIcon.style.display = 'block';
-        moonIcon.style.display = 'none';
-      }
-    }
-    
+
     // Toggle theme when button is clicked
     themeToggle.addEventListener('click', () => {
-      const currentTheme = root.getAttribute('data-theme');
+      const currentTheme = document.body.style.colorScheme;
       setTheme(currentTheme === 'dark' ? 'light' : 'dark');
     });
 

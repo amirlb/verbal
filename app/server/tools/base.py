@@ -32,9 +32,7 @@ class ToolResult:
         return any(getattr(self, field.name) for field in fields(self))
 
     def __add__(self, other: "ToolResult"):
-        def combine_fields(
-            field: str | None, other_field: str | None
-        ):
+        def combine_fields(field: str | None, other_field: str | None):
             if field and other_field:
                 return field + other_field
             return field or other_field
@@ -51,7 +49,7 @@ class ToolResult:
 
     def __str__(self):
         system_prefix = f"<system>{self.system}</system>" if self.system else ""
-        return f"{system_prefix}{self.output or self.error or ""}"
+        return f"{system_prefix}{self.output or self.error or ''}"
 
 
 class CLIResult(ToolResult):
