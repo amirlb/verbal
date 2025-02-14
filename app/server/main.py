@@ -7,26 +7,31 @@ import json
 import os
 import platform
 import traceback
-from typing import Any, AsyncGenerator, cast
+from typing import Any, AsyncGenerator, Dict, Literal, TypedDict, Union, cast
 
 from anthropic import (
     AsyncAnthropic,
     RateLimitError,
 )
 from anthropic.types import (
-    MessageParam,
     TextBlockParam,
     ToolResultBlockParam,
     ToolUseBlockParam,
 )
 from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 import httpx
 from sse_starlette.sse import EventSourceResponse
 
 from .tools import BashTool, EditTool, ToolCollection
+
+
+class Message(TypedDict):
+    """A message in the conversation."""
+    role: Literal["user", "assistant"]
+    content: Union[TextBlockParam, ToolUseBlockParam, ToolResultBlockParam]
+    timestamp: datetime
 
 
 # This system prompt is optimized for the Docker environment in this repository and
@@ -53,19 +58,8 @@ MODEL_NAME = os.getenv("MODEL_NAME", "claude-3-5-sonnet-20241022")
 
 app = FastAPI(title="Verbal")
 
-# Enable CORS for the frontend
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with your frontend URL
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-# Global dictionary to store conversation history for each session
-# In a production environment, this should be replaced with a proper database
-conversation_history: dict[str, list[MessageParam]] = {}
+# Global dictionary to store conversation history
+conversation_history: dict[str, list[Message]] = {}
 
 
 async def get_session_id(request: Request) -> str:
@@ -78,7 +72,7 @@ async def get_session_id(request: Request) -> str:
 
 
 async def agent_loop(
-    messages: list[MessageParam],
+    messages: list[Message],
 ) -> AsyncGenerator[str, None]:
     """Agent loop that processes messages and yields events for SSE."""
     tool_collection = ToolCollection(
@@ -90,9 +84,15 @@ async def agent_loop(
 
     while messages[-1]["role"] == "user":
         try:
+            # Convert our messages to MessageParam format for Claude
+            claude_messages = [
+                {"role": msg["role"], "content": [msg["content"]]} 
+                for msg in messages
+            ]
+            
             response = await client.messages.create(
                 max_tokens=4096,
-                messages=messages,
+                messages=claude_messages,
                 model=MODEL_NAME,
                 system=SYSTEM_PROMPT,
                 tools=tool_collection.to_params(),
@@ -104,13 +104,21 @@ async def agent_loop(
         for block in response.content:
             if block.type == "text":
                 text_block = TextBlockParam(type="text", text=block.text)
-                messages.append(MessageParam(role="assistant", content=[text_block]))
+                messages.append(Message(
+                    role="assistant",
+                    content=text_block,
+                    timestamp=datetime.utcnow()
+                ))
                 yield json.dumps(text_block)
             elif block.type == "tool_use":
                 use_block = ToolUseBlockParam(
                     type="tool_use", id=block.id, name=block.name, input=block.input
                 )
-                messages.append(MessageParam(role="assistant", content=[use_block]))
+                messages.append(Message(
+                    role="assistant",
+                    content=use_block,
+                    timestamp=datetime.utcnow()
+                ))
                 yield json.dumps(use_block)
                 result = await tool_collection.run(
                     name=block.name,
@@ -122,7 +130,11 @@ async def agent_loop(
                     content=str(result),
                     is_error=bool(result.error),
                 )
-                messages.append(MessageParam(role="user", content=[result_block]))
+                messages.append(Message(
+                    role="user",
+                    content=result_block,
+                    timestamp=datetime.utcnow()
+                ))
                 yield json.dumps(result_block)
             else:
                 yield json.dumps(
@@ -158,9 +170,10 @@ async def chat_endpoint(request: Request) -> EventSourceResponse:
 
     # Add the new user message to the conversation history
     assert data["type"] == "text"
-    user_message = MessageParam(
+    user_message = Message(
         role="user",
-        content=[TextBlockParam(type="text", text=data["text"])],
+        content=TextBlockParam(type="text", text=data["text"]),
+        timestamp=datetime.utcnow()
     )
     conversation_history[session_id].append(user_message)
 
@@ -186,18 +199,46 @@ async def redeploy_endpoint() -> JSONResponse:
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post("http://host.docker.internal:8000/deploy/verbal")
-            if response.status_code == 200:
-                return JSONResponse(content={"message": response.text})
-            else:
-                return JSONResponse(
-                    status_code=response.status_code,
-                    content={"error": response.text},
-                )
+            # We should never get the response!
+            return JSONResponse(
+                status_code=response.status_code,
+                content={"error": response.text},
+            )
     except httpx.RequestError as e:
         return JSONResponse(
             status_code=500,
             content={"error": f"Failed to trigger deployment: {str(e)}"},
         )
+
+
+@api.get("/conversations")
+async def list_conversations() -> JSONResponse:
+    """List all available conversation IDs with their message counts."""
+    conversations = {}
+    for session_id, messages in conversation_history.items():
+        first_msg = messages[0]["timestamp"]
+        last_msg = messages[-1]["timestamp"]
+        conversations[session_id] = {
+            "message_count": len(messages),
+            "created_at": first_msg.isoformat(),
+            "last_message_at": last_msg.isoformat()
+        }
+
+    return JSONResponse(content={"conversations": conversations})
+
+
+@api.get("/conversations/{conversation_id}")
+async def get_conversation(conversation_id: str) -> JSONResponse:
+    """Get the full history of a specific conversation."""
+    if conversation_id not in conversation_history:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "Conversation not found"}
+        )
+
+    return JSONResponse(content={
+        "messages": conversation_history[conversation_id]
+    })
 
 
 # Mount the API under /api

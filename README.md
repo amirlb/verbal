@@ -16,3 +16,9 @@ The implementation includes: nginx to handle SSL, which forwards connections
 to oauth2-proxy that authenticates users, which forwards them to the container
 with the actual Verbal app. There is also a checkpointing service, which
 provides an API that the LLM container can access.
+
+> [!WARNING]  
+> Never put sensitive or important information, or credentials, into Verbal
+> or a machine that runs Verbal. Run Verbal only on a virtual machine, preferably
+> on a cloud computer. Hackers *will* get and exploit everything there, and
+> *will* direct Verbal to act against your interest.

@@ -3,10 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Verbal Chat</title>
+  <title>Verbal</title>
   <link rel="icon" type="image/png" href="/favicon.png">
   <style>
-    /* Solarized theme */
+    @font-face {
+      font-family: 'RougeScript';
+      src: url('RougeScript-Regular.ttf') format('truetype');
+    }
+
     :root {
       --base03: light-dark(#fdf6e3, #002b36);
       --base02: light-dark(#eee8d5, #073642);
@@ -20,10 +24,11 @@
       --cyan: #2aa198;
       --orange: #cb4b16;
       --red: #dc322f;
+      --unit: 1dvh;
     }
 
     html, body {
-      height: 100%;
+      height: calc(var(--unit) * 100);
       overscroll-behavior: none;
     }
     body {
@@ -45,10 +50,15 @@
       margin-bottom: 10px;
     }
     header {
-      background: var(--base02);
       color: var(--base1);
       display: flex;
       align-items: center;
+    }
+    #appName {
+      color: var(--base2);
+      font-family: 'RougeScript', cursive;
+      font-size: 28px;
+      font-weight: 900;
     }
     header a, header button {
       background: none;
@@ -91,7 +101,6 @@
     #conversation {
       flex-grow: 1;
       overflow: auto;
-      background: var(--base02);
       display: flex;
       flex-direction: column;
       align-items: flex-start;
@@ -109,7 +118,6 @@
       min-width: calc(min(30em, calc(100vw - 40px)));
     }
     .tool-use {
-      background: var(--base02);
       color: var(--base1);
       font-family: monospace;
       padding: 3px;
@@ -163,7 +171,9 @@
 </head>
 <body>
   <header>
-    <span style="font-size: 24px; font-weight: bold; flex-grow: 1;">Verbal Chat</span>
+    <span style="flex-grow: 1"></span>
+    <span id="appName">Verbal</span>
+    <span style="flex-grow: 2"></span>
     <button id="themeToggle">
       <svg id="sun-icon" viewBox="0 0 24 24">
         <path d="M18 12a6 6 0 1 1-12 0 6 6 0 1 1 12 0z" id="sun" />
@@ -187,6 +197,20 @@
   </form>
   <script>
     "use strict";
+
+    let previous_adapt_ts = null;
+    function adapt_to_window_size() {
+        window.requestAnimationFrame(function (ts) {
+            if (ts === previous_adapt_ts)
+                return;
+
+            document.documentElement.style.setProperty('--unit', `${0.01 * window.visualViewport.height}px`);
+            previous_adapt_ts = ts;
+        });
+    }
+    adapt_to_window_size();
+    window.visualViewport.addEventListener('resize', adapt_to_window_size);
+
     // Theme handling
     const themeToggle = document.getElementById('themeToggle');
 
@@ -354,27 +378,28 @@
         try {
           const response = await fetch('/api/redeploy', { method: 'POST' });
           const data = await response.json();
-          if (!response.ok) {
-            throw new Error(data.error || 'Failed to redeploy');
-          }
-          // Clear the conversation
-          document.getElementById('conversation').innerHTML = '';
-          
-          // Show a loading message
-          const loadingMessage = document.createElement('div');
-          loadingMessage.className = 'message';
-          loadingMessage.textContent = 'Waiting for service to restart...';
-          document.getElementById('conversation').appendChild(loadingMessage);
-          
-          // Wait for the service to be healthy
-          const isHealthy = await checkHealth();
-          if (isHealthy) {
-            window.location.reload();
-          } else {
-            throw new Error('Service failed to restart after 30 seconds');
-          }
         } catch (error) {
           alert('Error redeploying: ' + error.message);
+        }
+
+      // Clear the conversation
+        document.getElementById('conversation').innerHTML = '';
+        
+        // Show a loading message
+        const loadingMessage = document.createElement('div');
+        loadingMessage.className = 'message';
+        loadingMessage.textContent = 'Waiting for service to restart...';
+        document.getElementById('conversation').appendChild(loadingMessage);
+        
+        // Delete the session cookie
+        document.cookie = 'session_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+        
+        // Wait for the service to be healthy
+        const isHealthy = await checkHealth();
+        if (isHealthy) {
+          window.location.reload();
+        } else {
+          alert('Service failed to restart after 30 seconds');
         }
       }
     });
