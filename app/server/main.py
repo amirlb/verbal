@@ -2,29 +2,19 @@
 FastAPI backend service that implements the agent loop with Server-Sent Events (SSE).
 """
 
-from datetime import datetime, timedelta
-import json
+from datetime import datetime
 import os
 import platform
-import traceback
-from typing import Any, AsyncGenerator, Dict, Literal, TypedDict, Union, cast
 
-from anthropic import (
-    AsyncAnthropic,
-    RateLimitError,
-)
-from anthropic.types import (
-    TextBlockParam,
-    ToolResultBlockParam,
-    ToolUseBlockParam,
-)
+from anthropic import AsyncAnthropic
+from anthropic.types import TextBlockParam
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 import httpx
 from sse_starlette.sse import EventSourceResponse
 
-from .tools import BashTool, EditTool, ToolCollection
+from .conversation import Conversation
 
 
 # This system prompt is optimized for the Docker environment in this repository and
@@ -40,97 +30,12 @@ The user accesses the assistant via a mobile app, so you need to keep your answe
 * You can feel free to install Ubuntu applications with your bash tool. Use curl instead of wget.
 * When using your bash tool with commands that are expected to output very large quantities of text, redirect into a tmp file and use str_replace_editor or `grep -n -B <lines before> -A <lines after> <query> <filename>` to confirm output.
 * Most of the user's projects are stored in `/workspace` directory. Your own code is in the `/verbal` directory.
-* Prefer using specialized tools over writing complicated commands with the bash tool.
 * There is no need to tell the user what tools you are using. They can see for themselves in a sidebar.
 * The current date is {datetime.today().strftime("%A, %B %-d, %Y")}.
 </SYSTEM_CAPABILITY>"""
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 MODEL_NAME = os.getenv("MODEL_NAME", "claude-3-5-sonnet-20241022")
-
-
-class Message(TypedDict):
-    """A message in the conversation."""
-    role: Literal["user", "assistant"]
-    content: Union[TextBlockParam, ToolUseBlockParam, ToolResultBlockParam]
-    timestamp: int
-
-
-class Conversation:
-    """A conversation that maintains tool state and message history."""
-    
-    def __init__(self):
-        """Initialize a new conversation with its own tool collection."""
-        self.tool_collection = ToolCollection(
-            BashTool(),
-            EditTool(),
-        )
-        self.messages: list[Message] = []
-    
-    def add_message(self, role: Literal["user", "assistant"], content: Union[TextBlockParam, ToolUseBlockParam, ToolResultBlockParam]) -> None:
-        """Add a message to the conversation history."""
-        self.messages.append(Message(
-            role=role,
-            content=content,
-            timestamp=datetime.now().timestamp()
-        ))
-
-    async def get_model_responses(self) -> AsyncGenerator[TextBlockParam | ToolUseBlockParam, None]:
-        response = await anthropic_client.messages.create(
-            max_tokens=4096,
-            messages=[
-                {"role": msg["role"], "content": [msg["content"]]} 
-                for msg in self.messages
-            ],
-            model=MODEL_NAME,
-            system=SYSTEM_PROMPT,
-            tools=self.tool_collection.to_params(),
-        )
-
-        for block in response.content:
-            if block.type == "text":
-                yield TextBlockParam(type="text", text=block.text)
-            elif block.type == "tool_use":
-                yield ToolUseBlockParam(
-                    type="tool_use", id=block.id, name=block.name, input=block.input
-                )
-            else:
-                raise ValueError(f"Unexpected block type: {block.type}")
-
-    async def process_messages(self) -> AsyncGenerator[str, None]:
-        """Process messages and yield events for SSE."""
-        try:
-            while self.messages[-1]["role"] == "user":
-                async for content in self.get_model_responses():
-                    self.add_message("assistant", content)
-                    yield json.dumps(content)
-                    if content["type"] == "tool_use":
-                        result = await self.tool_collection.run(
-                            name=content["name"],
-                            tool_input=content["input"],
-                        )
-                        result_block = ToolResultBlockParam(
-                            type="tool_result",
-                            tool_use_id=content["id"],
-                            content=str(result),
-                            is_error=bool(result.error),
-                        )
-                        self.add_message("user", result_block)
-                        yield json.dumps(result_block)
-        except Exception as e:
-            yield json.dumps({"type": "error", "message": self._exception_to_error_message(e)})
-
-    @staticmethod
-    def _exception_to_error_message(e: Exception) -> str:
-        if isinstance(e, RateLimitError):
-            body = "You have been rate limited."
-            if retry_after := e.response.headers.get("retry-after"):
-                body += f" **Retry after {timedelta(seconds=int(retry_after))} (HH:MM:SS).** "
-                body += "See our API [documentation](https://docs.anthropic.com/en/api/rate-limits) for more details."
-            body += f"\n\n{e.message}"
-            return body
-        else:
-            return traceback.format_exc()
 
 
 app = FastAPI(title="Verbal")
@@ -162,8 +67,8 @@ async def chat_endpoint(request: Request) -> EventSourceResponse:
 
     # Get or create conversation for this session
     if session_id not in conversations:
-        conversations[session_id] = Conversation()
-    
+        conversations[session_id] = Conversation(anthropic_client, MODEL_NAME, SYSTEM_PROMPT)
+
     conversation = conversations[session_id]
 
     # Add the new user message to the conversation history
@@ -214,7 +119,7 @@ async def list_conversations() -> JSONResponse:
         conversations_list[session_id] = {
             "message_count": len(conversation.messages),
             "created_at": first_msg,
-            "last_message_at": last_msg
+            "last_message_at": last_msg,
         }
 
     return JSONResponse(content={"conversations": conversations_list})
@@ -224,14 +129,9 @@ async def list_conversations() -> JSONResponse:
 async def get_conversation(conversation_id: str) -> JSONResponse:
     """Get the full history of a specific conversation."""
     if conversation_id not in conversations:
-        return JSONResponse(
-            status_code=404,
-            content={"error": "Conversation not found"}
-        )
+        return JSONResponse(status_code=404, content={"error": "Conversation not found"})
 
-    return JSONResponse(content={
-        "messages": conversations[conversation_id].messages
-    })
+    return JSONResponse(content={"messages": conversations[conversation_id].messages})
 
 
 # Mount the API under /api
