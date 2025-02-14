@@ -22,13 +22,13 @@
       --red: #dc322f;
     }
 
-    html {
+    html, body {
       height: 100%;
+      overscroll-behavior: none;
     }
     body {
       background: var(--base02);
       color: var(--base0);
-      height: 100%;
       margin: 0;
       font-family: Arial, sans-serif;
       display: flex;
@@ -116,6 +116,7 @@
       margin-left: 20px;
       display: flex;
       align-items: center;
+      gap: 10px;
     }
     #spinner {
       width: 20px;
