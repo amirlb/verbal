@@ -329,10 +329,53 @@
       );
     });
 
+    // Function to check if the service is healthy
+    async function checkHealth(maxAttempts = 30, interval = 1000) {
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        try {
+          const response = await fetch('/api/health');
+          if (response.ok) {
+            const data = await response.json();
+            if (data.status === 'ok') {
+              return true;
+            }
+          }
+        } catch (error) {
+          console.log('Health check failed:', error);
+        }
+        await new Promise(resolve => setTimeout(resolve, interval));
+      }
+      return false;
+    }
+
     // Restart button clears the conversation when clicked
-    document.getElementById('restartButton').addEventListener('click', function() {
+    document.getElementById('restartButton').addEventListener('click', async function() {
       if(confirm('Are you sure you want to restart the conversation?')) {
-        document.getElementById('conversation').innerHTML = '';
+        try {
+          const response = await fetch('/api/redeploy', { method: 'POST' });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || 'Failed to redeploy');
+          }
+          // Clear the conversation
+          document.getElementById('conversation').innerHTML = '';
+          
+          // Show a loading message
+          const loadingMessage = document.createElement('div');
+          loadingMessage.className = 'message';
+          loadingMessage.textContent = 'Waiting for service to restart...';
+          document.getElementById('conversation').appendChild(loadingMessage);
+          
+          // Wait for the service to be healthy
+          const isHealthy = await checkHealth();
+          if (isHealthy) {
+            window.location.reload();
+          } else {
+            throw new Error('Service failed to restart after 30 seconds');
+          }
+        } catch (error) {
+          alert('Error redeploying: ' + error.message);
+        }
       }
     });
   </script>

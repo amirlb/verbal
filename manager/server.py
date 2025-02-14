@@ -3,7 +3,7 @@ import subprocess
 
 app = Flask(__name__)
 
-VALID_SERVICES = ["verbal", "verbal-staging"]
+VALID_SERVICES = ["verbal"]
 
 @app.route('/deploy/<service>', methods=['POST'])
 def deploy(service):

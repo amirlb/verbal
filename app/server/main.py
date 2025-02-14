@@ -22,6 +22,8 @@ from anthropic.types import (
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
+import httpx
 from sse_starlette.sse import EventSourceResponse
 
 from .tools import BashTool, EditTool, ToolCollection
@@ -172,10 +174,30 @@ async def chat_endpoint(request: Request) -> EventSourceResponse:
     return response
 
 
-@app.get("/health")
-async def health_check():
-    """Health check endpoint."""
-    return {"status": "ok"}
+@api.get("/health")
+async def health_endpoint() -> JSONResponse:
+    """Check if the service is healthy and ready to accept requests."""
+    return JSONResponse(content={"status": "ok"})
+
+
+@api.post("/redeploy")
+async def redeploy_endpoint() -> JSONResponse:
+    """Trigger a redeployment of the service."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post("http://host.docker.internal:8000/deploy/verbal")
+            if response.status_code == 200:
+                return JSONResponse(content={"message": response.text})
+            else:
+                return JSONResponse(
+                    status_code=response.status_code,
+                    content={"error": response.text},
+                )
+    except httpx.RequestError as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Failed to trigger deployment: {str(e)}"},
+        )
 
 
 # Mount the API under /api
