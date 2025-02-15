@@ -5,183 +5,111 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Verbal</title>
   <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="stylesheet" href="/style.css">
   <style>
-    @font-face {
-      font-family: 'RougeScript';
-      src: url('RougeScript-Regular.ttf') format('truetype');
-    }
-
-    :root {
-      --base03: light-dark(#fdf6e3, #002b36);
-      --base02: light-dark(#eee8d5, #073642);
-      --base01: light-dark(#93a1a1, #586e75);
-      --base00: light-dark(#839496, #657b83);
-      --base0: light-dark(#657b83, #839496);
-      --base1: light-dark(#586e75, #93a1a1);
-      --base2: light-dark(#073642, #eee8d5);
-      --base3: light-dark(#002b36, #fdf6e3);
-      --blue: #268bd2;
-      --cyan: #2aa198;
-      --orange: #cb4b16;
-      --red: #dc322f;
-      --unit: 1dvh;
-    }
-
-    html, body {
-      height: calc(var(--unit) * 100);
-      overscroll-behavior: none;
-    }
-    body {
-      background: var(--base02);
-      color: var(--base0);
-      margin: 0;
-      font-family: Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-    }
-    header {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
+    main {
+      padding: 10px;
       box-sizing: border-box;
-      padding: 10px;
-      color: var(--base1);
-      display: flex;
-      align-items: center;
-      background: linear-gradient(var(--base02) 66%, transparent);
-    }
-    #appName {
-      color: var(--base2);
-      font-family: 'RougeScript', cursive;
-      font-size: 28px;
-      font-weight: 900;
-    }
-    header a, header button {
-      background: none;
-      border: none;
-      color: var(--base1);
-      font-size: 16px;
-      text-decoration: none;
-      margin-left: 10px;
-      cursor: pointer;
-    }
-    header button:hover, header a:hover {
-      color: var(--base2);
-    }
-    #themeToggle {
-      padding: 6px;
-      border-radius: 4px;
-      transition: background-color 0.3s;
-    }
-    #themeToggle:hover {
-      background: var(--base01);
-    }
-    #themeToggle svg {
-      width: 20px;
-      height: 20px;
-      stroke: var(--base1);
-      fill: none;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-    #themeToggle #sun-icon {
-      stroke-width: 3;
-      #sun {
-        stroke: none;
-        fill: var(--base1);
-      }
-    }
-    #themeToggle #moon-icon {
-      stroke-width: 2;
-    }
-    #conversation {
-      padding: 10px;
-      overflow: auto;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-    }
-    .message {
-      padding: 6px;
-      white-space: pre-wrap;
-      color: var(--base3);
-    }
-    .error-message {
-      background: var(--red);
-      padding: 10px;
-      border-radius: 4px;
-      font-family: monospace;
-      margin: 10px 0;
-    }
-    .user {
-      margin: 10px 0px;
-      padding: 10px;
-      border-radius: 8px;
-      background: var(--base01);
-      min-width: calc(min(30em, calc(100vw - 40px)));
-    }
-    .tool-use {
-      color: var(--base1);
-      font-family: monospace;
-      padding: 3px;
-      margin-left: 20px;
-      display: flex;
-      align-items: center;
       gap: 10px;
     }
-    #spinner {
-      width: 20px;
-      height: 20px;
-      margin: 10px;
-      border: 2px solid var(--base01);
-      border-top-color: var(--cyan);
-      border-radius: 50%;
-      animation: spinner 0.8s linear infinite;
-      align-self: flex-start;
+    .content-container {
+      flex-grow: 1;
+      overflow: auto;
+      margin-top: 50px;
+      display: flex;
+      align-items: stretch;
+      gap: 10px;
     }
-    @keyframes spinner {
-      to {transform: rotate(360deg);}
+    @media (max-width: 768px) {
+      .content-container {
+        flex-direction: column;
+      }
+      .files-section {
+        height: calc(var(--unit) * 35);
+      }
     }
-    #messageInput {
-      min-height: 36px;
-      max-height: 100px;
-      overflow-y: auto;
-      padding: 10px;
-      font-size: 16px;
-      border-top: 1px solid var(--base01);
-      border-radius: 8px 8px 0 0;
-      background: var(--base03);
-      color: var(--base2);
+    section {
+      border-radius: 8px;
+      background: var(--base02);
     }
-    #messageInput:empty::before {
-      color: var(--base01);
-      content: "Type your command here...";
+    .control-buttons {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
     }
-    #messageInput:focus {
-      outline: none;
-      border-top: 1px solid var(--base1);
+    .control-buttons button {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: background-color 0.2s;
     }
-    #sendButton {
-      padding: 10px 20px;
-      margin-left: 10px;
-      background: var(--orange);
-      color: var(--base3);
-      border: none;
-      border-radius: 4px;
-      font-size: 16px;
-      cursor: pointer;
+    #newSession {
+        background: var(--orange);
+        color: var(--base3);
     }
-    #sendButton:hover {
-      background: var(--red);
+    #newSession:hover {
+        background: var(--red);
+    }
+    #redeploy {
+        background: var(--base01);
+        color: var(--base3);
+    }
+    #redeploy:hover {
+        background: var(--base1);
+    }
+    section {
+        flex: 1;
+        background: var(--base03);
+        border-radius: 8px;
+        padding: 10px;
+    }
+    section h2 {
+        color: var(--base2);
+        margin: 0 0 20px 0;
+        font-size: 18px;
+    }
+    #sessionsList {
+      list-style: none;
+      padding: 0;
+    }
+    #sessionsList > li > a {
+        background: var(--base02);
+        border-radius: 6px;
+        padding: 15px;
+        margin-top: 10px;
+        transition: background-color 0.2s;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        text-decoration: none;
+        color: inherit;
+    }
+    #sessionsList > li > a:hover {
+        background: var(--base01);
+    }
+    #sessionsList > li:first-child > a {
+        padding: 24px;
+    }
+    .message-count {
+        color: var(--base2);
+        font-weight: bold;
+    }
+    .last-message {
+        color: var(--base1);
+        font-size: 14px;
+    }
+    .files-content {
+        color: var(--base1);
+        font-style: italic;
     }
   </style>
 </head>
 <body>
   <header>
-    <span style="flex-grow: 1"></span>
     <span id="appName">Verbal</span>
-    <span style="flex-grow: 2"></span>
+    <span style="flex-grow: 1"></span>
     <button id="themeToggle">
       <svg id="sun-icon" viewBox="0 0 24 24">
         <path d="M18 12a6 6 0 1 1-12 0 6 6 0 1 1 12 0z" id="sun" />
@@ -191,181 +119,55 @@
         <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454"/>
       </svg>
     </button>
-    <button id="restartButton">Restart</button>
   </header>
-  <div style="flex-grow: 1"></div>
-  <div id="conversation"></div>
-  <div id="messageInput" contenteditable autofocus></div>
+  <main>
+    <div class="content-container">
+      <section class="files-section">
+        <h2>Files</h2>
+        <div class="files-content">
+          TBD
+        </div>
+      </section>
+      <section class="sessions-section">
+        <h2>Sessions</h2>
+        <ul id="sessionsList">
+          <li><a href="chat.html" target="_blank">Start new session</a></li>
+        </ul>
+      </section>
+    </div>
+    <div class="control-buttons">
+      <button id="redeploy">Re-deploy</button>
+    </div>
+  </main>
+  <script src="/common.js"></script>
   <script>
     "use strict";
-
-    let previous_adapt_ts = null;
-    function adapt_to_window_size() {
-        window.requestAnimationFrame(function (ts) {
-            if (ts === previous_adapt_ts)
-                return;
-
-            document.documentElement.style.setProperty('--unit', `${0.01 * window.visualViewport.height}px`);
-            previous_adapt_ts = ts;
-        });
-    }
-    adapt_to_window_size();
-    window.visualViewport.addEventListener('resize', adapt_to_window_size);
-
-    // Theme handling
-    const themeToggle = document.getElementById('themeToggle');
-
-    function setTheme(theme) {
-      document.body.style.colorScheme = theme;
-      localStorage.setItem('theme', theme);
-      document.getElementById('sun-icon').style.display = theme === 'dark' ? 'none' : 'block';
-      document.getElementById('moon-icon').style.display = theme === 'dark' ? 'block' : 'none';
-    }
-
-    // Check for saved theme preference, otherwise use system preference
-    const savedTheme = localStorage.getItem('theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const defaultTheme = savedTheme || (prefersDark ? 'dark' : 'light');
-    
-    // Set initial theme
-    setTheme(defaultTheme);
-
-    // Toggle theme when button is clicked
-    themeToggle.addEventListener('click', () => {
-      const currentTheme = document.body.style.colorScheme;
-      setTheme(currentTheme === 'dark' ? 'light' : 'dark');
-    });
-
-    // Function to handle event stream requests
-    async function handleEventStream(url, postData, onEvent, onDone) {
+    // Load sessions
+    async function loadSessions() {
       try {
-        const response = await fetch(url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Accept": "text/event-stream"
-          },
-          body: JSON.stringify(postData)
-        });
-
-        if (!response.body) {
-          throw new Error("ReadableStream not supported");
+        const response = await fetch('/api/conversations');
+        const data = await response.json();
+        const sessionsList = document.getElementById('sessionsList');
+        sessionsList.innerHTML = '<li><a href="chat.html" target="_blank">Start new session</a></li>';
+        
+        const sessionIds = Object.keys(data.conversations);
+        sessionIds.sort((a, b) => data.conversations[b].last_message_at - data.conversations[a].last_message_at);
+        for (const id of sessionIds) {
+          const info = data.conversations[id];
+          const li = document.createElement('li');
+          li.innerHTML = `<a href="chat.html?session=${encodeURIComponent(id)}" target="_blank">
+            <span class="message-count">${info.message_count} messages</span>
+            <span class="last-message">Last message: ${new Date(info.last_message_at * 1000).toLocaleString()}</span>
+          </a>`;
+          sessionsList.appendChild(li);
         }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder("utf-8");
-        let buffer = "";
-
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          
-          buffer += decoder.decode(value, { stream: true });
-          
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-          
-          for (const line of lines) {
-            if (line.trim() === '' || !line.startsWith('data: ')) continue;
-            
-            try {
-              const data = JSON.parse(line.slice(6));
-              onEvent(data);
-            } catch (err) {
-              console.error("Error parsing event data:", err);
-              onDone();
-              return;
-            }
-          }
-        }
-      } catch (err) {
-        console.error("Event stream error:", err);
+      } catch (error) {
+        console.error('Failed to load sessions:', error);
       }
-      onDone();
     }
-
-    function renderMessage(message) {
-      switch (message.type) {
-        case 'text':
-          {
-            const elt = document.createElement('div');
-            elt.className = 'message assistant';
-            elt.textContent = message.text;
-            return elt;
-          }
-
-        case 'tool_use':
-          {
-            const elt = document.createElement('div');
-            elt.className = 'message tool-use';
-            const toolsIcon = document.createElement('span');
-            toolsIcon.textContent = '🛠';
-            elt.appendChild(toolsIcon);
-            const toolCall = document.createElement('span');
-            toolCall.textContent = `${message.name}: ${JSON.stringify(message.input)}`;
-            elt.appendChild(toolCall);
-            return elt;
-          }
-
-        case 'error':
-          {
-            const elt = document.createElement('pre');
-            elt.className = 'message error-message';
-            elt.textContent = message.message;
-            return elt;
-          }
-      }
-      return null;
-    }
-
-    // Chat response handler
-    function handleChatResponse(data) {
-      const elt = renderMessage(data);
-      if (elt) {
-        const conversation = document.getElementById('conversation');
-        const spinner = document.getElementById('spinner');
-        conversation.insertBefore(elt, spinner);
-      }
-      conversation.scrollTop = conversation.scrollHeight;
-    }
-
-    // Handle form submission
-    document.getElementById('messageInput').addEventListener('keypress', async function(event) {
-      if (event.key != 'Enter')
-        return;
-
-      event.preventDefault();
-      const messageText = event.target.innerText.trim();
-      if(messageText === "") return;
-
-      const conversation = document.getElementById('conversation');
-
-      // Append user's message
-      const userMessage = document.createElement('div');
-      userMessage.className = 'message user';
-      userMessage.textContent = messageText;
-      conversation.appendChild(userMessage);
-      
-      // Add initial spinner
-      const spinner = document.createElement('div');
-      spinner.id = 'spinner';
-      conversation.appendChild(spinner);
-      
-      conversation.scrollTop = conversation.scrollHeight;
-
-      // Clear the input field
-      event.target.innerText = "";
-
-      handleEventStream(
-        "/api/chat",
-        {type: "text", text: messageText},
-        handleChatResponse,
-        () => {document.getElementById('spinner').remove()}
-      );
-    });
 
     // Function to check if the service is healthy
-    async function checkHealth(maxAttempts = 30, interval = 1000) {
+    async function checkHealth(maxAttempts = 5, interval = 1000) {
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         try {
           const response = await fetch('/api/health');
@@ -383,37 +185,32 @@
       return false;
     }
 
-    // Restart button clears the conversation when clicked
-    document.getElementById('restartButton').addEventListener('click', async function() {
-      if(confirm('Are you sure you want to restart the conversation?')) {
+    document.getElementById('redeploy').addEventListener('click', async (event) => {
+      event.target.disabled = true;
+      if (confirm('Are you sure you want to re-deploy the service?')) {
         try {
           const response = await fetch('/api/redeploy', { method: 'POST' });
-          const data = await response.json();
+          await response.json();
         } catch (error) {
           alert('Error redeploying: ' + error.message);
         }
+        alert('Successful redeployment: ' + error.message);
 
-      // Clear the conversation
-        document.getElementById('conversation').innerHTML = '';
-        
-        // Show a loading message
-        const loadingMessage = document.createElement('div');
-        loadingMessage.className = 'message';
-        loadingMessage.textContent = 'Waiting for service to restart...';
-        document.getElementById('conversation').appendChild(loadingMessage);
-        
-        // Delete the session cookie
-        document.cookie = 'session_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-        
         // Wait for the service to be healthy
         const isHealthy = await checkHealth();
         if (isHealthy) {
           window.location.reload();
         } else {
-          alert('Service failed to restart after 30 seconds');
+          alert('Service failed to restart after 5 seconds');
         }
       }
+      event.target.enabled = true;
     });
+
+    // Initial load
+    loadSessions();
+    // Refresh sessions every 30 seconds
+    setInterval(loadSessions, 30000);
   </script>
 </body>
 </html> 

@@ -3,8 +3,10 @@ FastAPI backend service that implements the agent loop with Server-Sent Events (
 """
 
 from datetime import datetime
+import json
 import os
 import platform
+import uuid
 
 from anthropic import AsyncAnthropic
 from anthropic.types import TextBlockParam
@@ -47,15 +49,6 @@ anthropic_client = AsyncAnthropic(api_key=ANTHROPIC_API_KEY, max_retries=4)
 conversations: dict[str, Conversation] = {}
 
 
-async def get_session_id(request: Request) -> str:
-    """Get or create a session ID for the request."""
-    session_id = request.cookies.get("session_id")
-    if not session_id:
-        # In a real application, you'd want to generate a secure random session ID
-        session_id = os.urandom(16).hex()
-    return session_id
-
-
 api = FastAPI(title="Verbal API")
 
 
@@ -63,26 +56,28 @@ api = FastAPI(title="Verbal API")
 async def chat_endpoint(request: Request) -> EventSourceResponse:
     """Chat endpoint that returns a Server-Sent Events stream."""
     data = await request.json()
-    session_id = await get_session_id(request)
-
-    # Get or create conversation for this session
-    if session_id not in conversations:
+    assert data["type"] == "text"
+    
+    # Get existing session ID from request or generate new one
+    initial_events = []
+    session_id = data.get("session_id")
+    if session_id is not None:
+        assert session_id in conversations
+    else:
+        session_id = str(uuid.uuid4())
         conversations[session_id] = Conversation(anthropic_client, MODEL_NAME, SYSTEM_PROMPT)
+        initial_events.append({"type": "session_id", "session_id": session_id})
 
     conversation = conversations[session_id]
-
-    # Add the new user message to the conversation history
-    assert data["type"] == "text"
     conversation.add_message("user", TextBlockParam(type="text", text=data["text"]))
 
-    response = EventSourceResponse(
-        conversation.process_messages(),
-        media_type="text/event-stream",
-    )
+    async def stream():
+        for event in initial_events:
+            yield json.dumps(event)
+        async for event in conversation.process_messages():
+            yield json.dumps(event)
 
-    # Set session cookie in response
-    response.set_cookie(key="session_id", value=session_id, httponly=True)
-    return response
+    return EventSourceResponse(stream(), media_type="text/event-stream")
 
 
 @api.get("/health")

@@ -3,9 +3,8 @@ Handles conversation state and message processing logic.
 """
 
 from datetime import datetime, timedelta
-import json
 import traceback
-from typing import AsyncGenerator, Literal, TypedDict, Union
+from typing import Any, AsyncGenerator, Literal, TypedDict, Union
 
 from anthropic import RateLimitError
 from anthropic.types import (
@@ -68,13 +67,13 @@ class Conversation:
             else:
                 raise ValueError(f"Unexpected block type: {block.type}")
 
-    async def process_messages(self) -> AsyncGenerator[str, None]:
+    async def process_messages(self) -> AsyncGenerator[dict[str, Any], None]:
         """Process messages and yield events for SSE."""
         try:
             while self.messages[-1]["role"] == "user":
                 async for content in self.get_model_responses():
                     self.add_message("assistant", content)
-                    yield json.dumps(content)
+                    yield content
                     if content["type"] == "tool_use":
                         result = await self.tool_collection.run(
                             name=content["name"],
@@ -87,9 +86,9 @@ class Conversation:
                             is_error=bool(result.error),
                         )
                         self.add_message("user", result_block)
-                        yield json.dumps(result_block)
+                        yield result_block
         except Exception as e:
-            yield json.dumps({"type": "error", "message": self._exception_to_error_message(e)})
+            yield {"type": "error", "message": self._exception_to_error_message(e)}
 
     @staticmethod
     def _exception_to_error_message(e: Exception) -> str:

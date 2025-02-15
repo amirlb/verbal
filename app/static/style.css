@@ -1,0 +1,90 @@
+@font-face {
+    font-family: 'RougeScript';
+    src: url('RougeScript-Regular.ttf') format('truetype');
+}
+
+:root {
+    --base03: light-dark(#fdf6e3, #002b36);
+    --base02: light-dark(#eee8d5, #073642);
+    --base01: light-dark(#93a1a1, #586e75);
+    --base00: light-dark(#839496, #657b83);
+    --base0: light-dark(#657b83, #839496);
+    --base1: light-dark(#586e75, #93a1a1);
+    --base2: light-dark(#073642, #eee8d5);
+    --base3: light-dark(#002b36, #fdf6e3);
+    --blue: #268bd2;
+    --cyan: #2aa198;
+    --orange: #cb4b16;
+    --red: #dc322f;
+    --unit: 1dvh;
+}
+
+html, body, main {
+    height: calc(var(--unit) * 100);
+    overscroll-behavior: none;
+    margin: 0;
+    padding: 0;
+}
+main {
+    background: var(--base02);
+    color: var(--base0);
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+}
+header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    box-sizing: border-box;
+    padding: 10px;
+    color: var(--base1);
+    display: flex;
+    align-items: center;
+    background: linear-gradient(var(--base02) 66%, transparent);
+}
+#appName {
+    color: var(--base2);
+    font-family: 'RougeScript', cursive;
+    font-size: 28px;
+    font-weight: 900;
+}
+header a, header button {
+    background: none;
+    border: none;
+    color: var(--base1);
+    font-size: 16px;
+    text-decoration: none;
+    margin-left: 10px;
+    cursor: pointer;
+}
+header button:hover, header a:hover {
+    color: var(--base2);
+}
+#themeToggle {
+    padding: 6px;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+}
+#themeToggle:hover {
+    background: var(--base01);
+}
+#themeToggle svg {
+    width: 20px;
+    height: 20px;
+    stroke: var(--base1);
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+#themeToggle #sun-icon {
+    stroke-width: 3;
+    #sun {
+        stroke: none;
+        fill: var(--base1);
+    }
+}
+#themeToggle #moon-icon {
+    stroke-width: 2;
+}
