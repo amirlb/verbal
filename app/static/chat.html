@@ -7,6 +7,9 @@
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="stylesheet" href="/style.css">
   <style>
+    main {
+      margin-top: 16px;
+    }
     #conversation {
         padding: 10px;
         overflow: auto;
@@ -33,14 +36,44 @@
         background: var(--base01);
         min-width: calc(min(30em, calc(100vw - 40px)));
     }
+    .actions-box {
+      padding-left: 10px;
+    }
+    .actions-box > label {
+      font-size: 14px;
+    }
+    input[type="checkbox"].squeeze-checkbox {
+      display: none;
+    }
+    input[type="checkbox"].squeeze-checkbox:checked + .squeeze-indicator::before {
+      content: "▿";
+    }
+    input[type="checkbox"].squeeze-checkbox:not(:checked) + .squeeze-indicator::before {
+      content: "▹";
+    }
+    .actions {
+      display: none;
+      flex-direction: column;
+      padding: 4px 10px;
+      gap: 6px;
+      border-left: 1px solid var(--base01);
+      border-radius: 8px;
+    }
+    label:has(input[type="checkbox"].squeeze-checkbox:checked) + .actions {
+      display: flex;
+    }
     .tool-use {
         color: var(--base1);
         font-family: monospace;
-        padding: 3px;
-        margin-left: 20px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
+        white-space: pre-wrap;
+    }
+    .tool-result {
+        color: var(--base1);
+        background: var(--base03);
+        font-family: monospace;
+        white-space: pre-wrap;
+        border-radius: 8px;
+        padding: 10px;
     }
     #spinner {
         width: 20px;
@@ -90,9 +123,8 @@
 </head>
 <body>
   <header>
-    <span style="flex-grow: 1"></span>
     <a id="appName" href="./">Verbal</a>
-    <span style="flex-grow: 2"></span>
+    <span style="flex-grow: 1"></span>
     <button id="themeToggle">
       <svg id="sun-icon" viewBox="0 0 24 24">
         <path d="M18 12a6 6 0 1 1-12 0 6 6 0 1 1 12 0z" id="sun" />
@@ -133,7 +165,7 @@
         const conversation = document.getElementById('conversation');
         
         for (const message of data.messages) {
-          if (message.role === 'user') {
+          if (message.role === 'user' && message.content.type === 'text') {
             const userMessage = document.createElement('div');
             userMessage.className = 'message user';
             userMessage.textContent = message.content.text;
@@ -209,6 +241,27 @@
       onDone();
     }
 
+    function getActionsContainer() {
+      const conversation = document.getElementById('conversation');
+      let lastChild = conversation.lastChild;
+      if (lastChild.id === "spinner") {
+        lastChild = lastChild.previousSibling;
+      }
+      if (lastChild.className === 'actions-box') {
+        return lastChild.querySelector('.actions');
+      }
+
+      const outerContainer = document.createElement('div');
+      outerContainer.className = 'actions-box';
+      outerContainer.innerHTML = `<label><input type="checkbox" class="squeeze-checkbox" /><span class="squeeze-indicator"></span> Actions</label>`;
+      lastChild.insertAdjacentElement('afterend', outerContainer);
+
+      const container = document.createElement('div');
+      container.className = 'actions';
+      outerContainer.appendChild(container);
+      return container;
+    }
+
     function renderMessage(message) {
       switch (message.type) {
         case 'session_id':
@@ -216,7 +269,7 @@
           // Update URL without reloading the page
           const newUrl = new URL(window.location);
           newUrl.searchParams.set('session', currentSessionId);
-          window.history.pushState({}, '', newUrl);
+          window.history.replaceState({}, '', newUrl);
           return;
 
         case 'text':
@@ -230,14 +283,25 @@
         case 'tool_use':
           {
             const elt = document.createElement('div');
-            elt.className = 'message tool-use';
-            const toolsIcon = document.createElement('span');
-            toolsIcon.textContent = '🛠';
-            elt.appendChild(toolsIcon);
-            const toolCall = document.createElement('span');
-            toolCall.textContent = `${message.name}: ${JSON.stringify(message.input)}`;
-            elt.appendChild(toolCall);
-            return elt;
+            elt.className = 'tool-use';
+            if (message.name === 'bash') {
+              elt.textContent = `💻 ${message.input.command}`;
+            } else if (message.name === 'str_replace_editor' && message.input.command === 'view') {
+              elt.textContent = `🔍 ${message.input.path}`;
+            } else {
+              elt.textContent = `🛠 ${message.name}: ${JSON.stringify(message.input)}`;
+            }
+            getActionsContainer().appendChild(elt);
+            return;
+          }
+
+        case 'tool_result':
+          {
+            const elt = document.createElement('div');
+            elt.className = 'tool-result';
+            elt.textContent = message.content;
+            getActionsContainer().appendChild(elt);
+            return;
           }
 
         case 'error':

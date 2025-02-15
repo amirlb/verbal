@@ -102,7 +102,6 @@
     }
     .files-content {
         color: var(--base1);
-        font-style: italic;
     }
   </style>
 </head>
@@ -131,7 +130,7 @@
       <section class="sessions-section">
         <h2>Sessions</h2>
         <ul id="sessionsList">
-          <li><a href="chat.html" target="_blank">Start new session</a></li>
+          <li><a href="chat.html">Start new session</a></li>
         </ul>
       </section>
     </div>
@@ -148,14 +147,14 @@
         const response = await fetch('/api/conversations');
         const data = await response.json();
         const sessionsList = document.getElementById('sessionsList');
-        sessionsList.innerHTML = '<li><a href="chat.html" target="_blank">Start new session</a></li>';
+        sessionsList.innerHTML = '<li><a href="chat.html">Start new session</a></li>';
         
         const sessionIds = Object.keys(data.conversations);
         sessionIds.sort((a, b) => data.conversations[b].last_message_at - data.conversations[a].last_message_at);
         for (const id of sessionIds) {
           const info = data.conversations[id];
           const li = document.createElement('li');
-          li.innerHTML = `<a href="chat.html?session=${encodeURIComponent(id)}" target="_blank">
+          li.innerHTML = `<a href="chat.html?session=${encodeURIComponent(id)}">
             <span class="message-count">${info.message_count} messages</span>
             <span class="last-message">Last message: ${new Date(info.last_message_at * 1000).toLocaleString()}</span>
           </a>`;

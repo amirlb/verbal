@@ -33,6 +33,7 @@ The user accesses the assistant via a mobile app, so you need to keep your answe
 * When using your bash tool with commands that are expected to output very large quantities of text, redirect into a tmp file and use str_replace_editor or `grep -n -B <lines before> -A <lines after> <query> <filename>` to confirm output.
 * Most of the user's projects are stored in `/workspace` directory. Your own code is in the `/verbal` directory.
 * There is no need to tell the user what tools you are using. They can see for themselves in a sidebar.
+* Keep your explanations very brief. When you make changes to files, just list the key functional changes in 1-2 lines. Don't explain code structure or CSS properties in detail unless specifically asked. The user is on a phone and needs to scroll as little as possible.
 * The current date is {datetime.today().strftime("%A, %B %-d, %Y")}.
 </SYSTEM_CAPABILITY>"""
 
