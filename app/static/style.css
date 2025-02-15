@@ -62,14 +62,6 @@ header a, header button {
 header button:hover, header a:hover {
     color: var(--base2);
 }
-#themeToggle {
-    padding: 6px;
-    border-radius: 4px;
-    transition: background-color 0.3s;
-}
-#themeToggle:hover {
-    background: var(--base01);
-}
 #themeToggle svg {
     width: 20px;
     height: 20px;
@@ -87,4 +79,82 @@ header button:hover, header a:hover {
 }
 #themeToggle #moon-icon {
     stroke-width: 2;
+}
+
+.hamburger-menu {
+    position: relative;
+}
+
+.menu-button {
+    padding: 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.menu-button:hover {
+    background: var(--base01);
+}
+
+.menu-button svg {
+    width: 24px;
+    height: 24px;
+    stroke: var(--base1);
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+}
+
+.menu-content {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: var(--base02);
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    min-width: 200px;
+    padding: 8px;
+    display: none;
+    z-index: 1000;
+}
+
+.menu-content.active {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+}
+
+.menu-content .separator {
+    height: 1px;
+    background: var(--base01);
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    gap: 8px;
+}
+
+.menu-item:hover {
+    background: var(--base01);
+}
+
+.menu-item svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    fill: none;
+}
+
+.user-info {
+    padding: 12px 8px;
+}
+
+.user-email {
+    font-size: 14px;
+    color: var(--base0);
 }

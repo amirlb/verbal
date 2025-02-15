@@ -130,6 +130,14 @@ async def get_conversation(conversation_id: str) -> JSONResponse:
     return JSONResponse(content={"messages": conversations[conversation_id].messages})
 
 
+@api.get("/whoami")
+async def whoami_endpoint(request: Request) -> JSONResponse:
+    email = request.headers.get("x-forwarded-email")
+    if email is None:
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    return JSONResponse(content={"email": email})
+
+
 # Mount the API under /api
 app.mount("/api", api)
 

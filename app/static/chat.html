@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="/style.css">
   <style>
     main {
-      margin-top: 16px;
+      padding-top: 16px;
     }
     #conversation {
         padding: 10px;
@@ -125,15 +125,36 @@
   <header>
     <a id="appName" href="./">Verbal</a>
     <span style="flex-grow: 1"></span>
-    <button id="themeToggle">
-      <svg id="sun-icon" viewBox="0 0 24 24">
-        <path d="M18 12a6 6 0 1 1-12 0 6 6 0 1 1 12 0z" id="sun" />
-        <path d="M20.315 15.444 L22.163 16.21 M15.444 20.315 L16.21 22.163 M8.5558 20.315 L7.7905 22.163 M3.6851 15.444 L1.8373 16.21 M3.6851 8.5558 L1.8373 7.7905 M8.5558 3.6851 L7.7905 1.8373 M15.444 3.6851 L16.21 1.8373 M20.315 8.5558 L22.163 7.7905"/>
-      </svg>
-      <svg id="moon-icon" viewBox="0 0 24 24">
-        <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454"/>
-      </svg>
-    </button>
+    <div class="hamburger-menu">
+      <button class="menu-button" id="menuToggle">
+        <svg viewBox="0 0 24 24">
+          <path d="M3 6h18M3 13h18M3 20h18" />
+        </svg>
+      </button>
+      <div class="menu-content">
+        <button class="menu-item" id="themeToggle">
+          <svg id="sun-icon" viewBox="0 0 24 24">
+            <path d="M18 12a6 6 0 1 1-12 0 6 6 0 1 1 12 0z" id="sun" />
+            <path d="M20.315 15.444 L22.163 16.21 M15.444 20.315 L16.21 22.163 M8.5558 20.315 L7.7905 22.163 M3.6851 15.444 L1.8373 16.21 M3.6851 8.5558 L1.8373 7.7905 M8.5558 3.6851 L7.7905 1.8373 M15.444 3.6851 L16.21 1.8373 M20.315 8.5558 L22.163 7.7905"/>
+          </svg>
+          <svg id="moon-icon" viewBox="0 0 24 24">
+            <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454"/>
+          </svg>
+          <span>Theme</span>
+        </button>
+        <div class="separator"></div>
+        <div class="user-info">
+          <div>Signed in as</div>
+          <div class="user-email">Loading...</div>
+        </div>
+        <a href="/oauth/sign_out" class="menu-item">
+          <svg viewBox="0 0 24 24">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>
+          </svg>
+          Sign out
+        </a>
+      </div>
+    </div>
   </header>
   <main>
     <div style="flex-grow: 1"></div>
@@ -143,6 +164,37 @@
   <script src="/common.js"></script>
   <script>
     "use strict";
+
+    // Menu handling
+    const menuToggle = document.getElementById('menuToggle');
+    const menuContent = menuToggle.nextElementSibling;
+    
+    menuToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      menuContent.classList.toggle('active');
+    });
+
+    // Close menu when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!menuContent.contains(e.target) && !menuToggle.contains(e.target)) {
+        menuContent.classList.remove('active');
+      }
+    });
+
+    // Load user info
+    async function loadUserInfo() {
+      try {
+        const response = await fetch('/api/whoami');
+        const data = await response.json();
+        document.querySelector('.user-email').textContent = data.email;
+      } catch (error) {
+        console.error('Failed to load user info:', error);
+        document.querySelector('.user-email').textContent = 'Error loading user info';
+      }
+    }
+
+    // Load user info on page load
+    loadUserInfo();
 
     let currentSessionId = new URLSearchParams(window.location.search).get('session');
 
