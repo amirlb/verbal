@@ -338,7 +338,7 @@
             const elt = document.createElement('div');
             elt.className = 'tool-use';
             if (message.name === 'bash') {
-              elt.textContent = `💻 ${message.input.command}`;
+              elt.textContent = `💻 ${message.input.restart ? '🔄' : message.input.command}`;
             } else if (message.name === 'str_replace_editor' && message.input.command === 'view') {
               elt.textContent = `🔍 ${message.input.path}`;
             } else {

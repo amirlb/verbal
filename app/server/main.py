@@ -4,8 +4,10 @@ FastAPI backend service that implements the agent loop with Server-Sent Events (
 
 from datetime import datetime
 import json
+import logging
 import os
 import platform
+import sqlite3
 import uuid
 
 from anthropic import AsyncAnthropic
@@ -16,7 +18,13 @@ from fastapi.responses import JSONResponse
 import httpx
 from sse_starlette.sse import EventSourceResponse
 
-from .conversation import Conversation
+from .conversations import Conversations
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+)
 
 
 # This system prompt is optimized for the Docker environment in this repository and
@@ -39,16 +47,21 @@ The user accesses the assistant via a mobile app, so you need to keep your answe
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 MODEL_NAME = os.getenv("MODEL_NAME", "claude-3-5-sonnet-20241022")
+DATABASE_FILE_NAME = os.getenv("DATABASE_FILE_NAME", "/verbal/db.sqlite")
+
+
+db = sqlite3.connect(DATABASE_FILE_NAME)
+
+conversations = Conversations(
+    db=sqlite3.connect(DATABASE_FILE_NAME),
+    client=AsyncAnthropic(api_key=ANTHROPIC_API_KEY, max_retries=4),
+    model_name=MODEL_NAME,
+    system_prompt=SYSTEM_PROMPT,
+)
+conversations.prepare_db()
 
 
 app = FastAPI(title="Verbal")
-
-# Create a shared Anthropic client
-anthropic_client = AsyncAnthropic(api_key=ANTHROPIC_API_KEY, max_retries=4)
-
-# Global dictionary to store conversations
-conversations: dict[str, Conversation] = {}
-
 
 api = FastAPI(title="Verbal API")
 
@@ -58,24 +71,20 @@ async def chat_endpoint(request: Request) -> EventSourceResponse:
     """Chat endpoint that returns a Server-Sent Events stream."""
     data = await request.json()
     assert data["type"] == "text"
-    
+
     # Get existing session ID from request or generate new one
     initial_events = []
     session_id = data.get("session_id")
-    if session_id is not None:
-        assert session_id in conversations
-    else:
+    if session_id is None:
         session_id = str(uuid.uuid4())
-        conversations[session_id] = Conversation(anthropic_client, MODEL_NAME, SYSTEM_PROMPT)
         initial_events.append({"type": "session_id", "session_id": session_id})
 
-    conversation = conversations[session_id]
-    conversation.add_message("user", TextBlockParam(type="text", text=data["text"]))
+    conversations.add_message(session_id, "user", TextBlockParam(type="text", text=data["text"]))
 
     async def stream():
         for event in initial_events:
             yield json.dumps(event)
-        async for event in conversation.process_messages():
+        async for event in conversations.agent_loop(session_id):
             yield json.dumps(event)
 
     return EventSourceResponse(stream(), media_type="text/event-stream")
@@ -108,26 +117,13 @@ async def redeploy_endpoint() -> JSONResponse:
 @api.get("/conversations")
 async def list_conversations() -> JSONResponse:
     """List all available conversation IDs with their message counts."""
-    conversations_list = {}
-    for session_id, conversation in conversations.items():
-        first_msg = conversation.messages[0]["timestamp"]
-        last_msg = conversation.messages[-1]["timestamp"]
-        conversations_list[session_id] = {
-            "message_count": len(conversation.messages),
-            "created_at": first_msg,
-            "last_message_at": last_msg,
-        }
-
-    return JSONResponse(content={"conversations": conversations_list})
+    return JSONResponse(content={"conversations": conversations.list_conversations()})
 
 
 @api.get("/conversations/{conversation_id}")
 async def get_conversation(conversation_id: str) -> JSONResponse:
     """Get the full history of a specific conversation."""
-    if conversation_id not in conversations:
-        return JSONResponse(status_code=404, content={"error": "Conversation not found"})
-
-    return JSONResponse(content={"messages": conversations[conversation_id].messages})
+    return JSONResponse(content={"messages": conversations.get_conversation(conversation_id)})
 
 
 @api.get("/whoami")

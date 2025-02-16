@@ -23,8 +23,6 @@ services:
     build: ./app
     networks:
       - verbal
-    ports:
-      - "3000:3000"
     volumes:
       - .:/verbal
       - ./workspace:/workspace

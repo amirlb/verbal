@@ -1,6 +1,7 @@
 import asyncio
 import os
 from typing import ClassVar, Literal
+import time
 
 from anthropic.types.beta import BetaToolBash20241022Param
 
@@ -49,7 +50,9 @@ class _BashSession:
     async def run(self, command: str):
         """Execute a command in the bash shell."""
         if not self._started:
-            raise ToolError("Session has not started.")
+            raise ToolError(
+                "Session has been stopped due to resource constraints and must be restarted."
+            )
         if self._process.returncode is not None:
             return ToolResult(
                 system="tool must be restarted",
@@ -101,37 +104,84 @@ class _BashSession:
         return CLIResult(output=output, error=error)
 
 
+class BashSessionsManager:
+    """Manages BashSessions."""
+
+    def __init__(self, db, max_sessions: int = 10):
+        self.db = db
+        self.max_sessions = max_sessions
+        self.sessions: dict[str, _BashSession] = {}
+        self.session_timestamps: dict[str, float] = {}
+
+    async def get_session(self, session_id: str) -> _BashSession:
+        if session_id not in self.sessions and self._did_session_ever_use_bash(session_id):
+            # A non-started session means it was killed due to resource constraints
+            return _BashSession()
+
+        if session_id not in self.sessions: 
+            await self._create_session(session_id)
+
+        return self.sessions[session_id]
+
+    def stop_session(self, session_id: str):
+        self.sessions[session_id].stop()
+        del self.sessions[session_id]
+        del self.session_timestamps[session_id]
+
+    async def restart_session(self, session_id: str):
+        if session_id in self.sessions:
+            self.stop_session(session_id)
+        await self._create_session(session_id)
+
+    def _did_session_ever_use_bash(self, session_id: str) -> bool:
+        cursor = self.db.cursor()
+        cursor.execute("""
+            SELECT 1 FROM message
+            WHERE session_id = ? AND json_extract(content, '$.type') = 'tool_use' AND json_extract(content, '$.name') = 'bash'
+            LIMIT 2
+        """, (session_id,))
+        return len(cursor.fetchall()) > 1
+
+    async def _create_session(self, session_id: str) -> _BashSession:
+        assert session_id not in self.sessions
+        if len(self.sessions) >= self.max_sessions:
+            self._pop_oldest_session()
+        self.sessions[session_id] = _BashSession()
+        self.session_timestamps[session_id] = time.monotonic()
+        await self.sessions[session_id].start()
+
+    def _pop_oldest_session(self):
+        least_recently_used = min(self.session_timestamps.keys(), key=self.session_timestamps.get)
+        self.stop_session(least_recently_used)
+
+
 class BashTool(BaseAnthropicTool):
     """
     A tool that allows the agent to run bash commands.
     The tool parameters are defined by Anthropic and are not editable.
     """
 
-    _session: _BashSession | None
+    _manager: BashSessionsManager
+    _session_id: str
+
     name: ClassVar[Literal["bash"]] = "bash"
     api_type: ClassVar[Literal["bash_20250124"]] = "bash_20250124"
 
-    def __init__(self):
-        self._session = None
+    def __init__(self, manager: BashSessionsManager, session_id: str):
         super().__init__()
+        self._manager = manager
+        self._session_id = session_id
 
     async def __call__(self, command: str | None = None, restart: bool = False, **kwargs):
         if restart:
-            if self._session:
-                self._session.stop()
-            self._session = _BashSession()
-            await self._session.start()
-
+            await self._manager.restart_session(self._session_id)
             return ToolResult(system="tool has been restarted.")
 
-        if self._session is None:
-            self._session = _BashSession()
-            await self._session.start()
+        if command is None:
+            raise ToolError("no command provided.")
 
-        if command is not None:
-            return await self._session.run(command)
-
-        raise ToolError("no command provided.")
+        session = await self._manager.get_session(self._session_id)
+        return await session.run(command)
 
     def to_params(self) -> BetaToolBash20241022Param:
         return {
