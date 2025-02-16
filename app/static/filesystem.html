@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Filesystem Browser</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    main {
+      padding: 58px 10px 10px 10px;
+      box-sizing: border-box;
+      gap: 10px;
+    }
+    #breadcrumbs {
+      display: flex;
+      gap: 10px;
+    }
+    #breadcrumbs a {
+      padding: 8px 12px;
+      border-radius: 6px;
+      text-decoration: none;
+      background-color: var(--base01);
+    }
+    ul.flex-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      list-style: none;
+      padding: 0;
+    }
+    ul.flex-list li a {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 6px;
+      background-color: var(--base03);
+      color: var(--base0);
+      text-decoration: none;
+      border: 1px solid var(--base03);
+    }
+    ul.flex-list li a:hover {
+      border: 1px solid var(--base01);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a id="appName" href="./">Verbal</a>
+    <span style="flex-grow: 1"></span>
+    <div class="hamburger-menu">
+      <button class="menu-button" id="menuToggle">
+        <svg viewBox="0 0 24 24">
+          <path d="M3 6h18M3 13h18M3 20h18" />
+        </svg>
+      </button>
+      <div class="menu-content">
+        <button class="menu-item" id="themeToggle">
+          <svg id="sun-icon" viewBox="0 0 24 24">
+            <path d="M18 12a6 6 0 1 1-12 0 6 6 0 1 1 12 0z" id="sun" />
+            <path d="M20.315 15.444 L22.163 16.21 M15.444 20.315 L16.21 22.163 M8.5558 20.315 L7.7905 22.163 M3.6851 15.444 L1.8373 16.21 M3.6851 8.5558 L1.8373 7.7905 M8.5558 3.6851 L7.7905 1.8373 M15.444 3.6851 L16.21 1.8373 M20.315 8.5558 L22.163 7.7905"/>
+          </svg>
+          <svg id="moon-icon" viewBox="0 0 24 24">
+            <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454"/>
+          </svg>
+          <span>Theme</span>
+        </button>
+        <div class="separator"></div>
+        <div class="user-info">
+          <div>Signed in as</div>
+          <div class="user-email">Loading...</div>
+        </div>
+        <a href="/oauth2/sign_out" class="menu-item">
+          <svg viewBox="0 0 24 24">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>
+          </svg>
+          Sign out
+        </a>
+      </div>
+    </div>
+  </header>
+  <main>
+    <div id="breadcrumbs"></div>
+    <div id="message"></div>
+    <div id="content"></div>
+  </main>
+  <script src="/common.js"></script>
+  <script>
+    "use strict";
+    
+    // Menu handling
+    const menuToggle = document.getElementById('menuToggle');
+    const menuContent = menuToggle.nextElementSibling;
+    
+    menuToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      menuContent.classList.toggle('active');
+    });
+    
+    // Close menu when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!menuContent.contains(e.target) && !menuToggle.contains(e.target)) {
+        menuContent.classList.remove('active');
+      }
+    });
+    
+    // Load user info
+    async function loadUserInfo() {
+      try {
+        const response = await fetch('/api/whoami');
+        const data = await response.json();
+        document.querySelector('.user-email').textContent = data.email;
+      } catch (error) {
+        console.error('Failed to load user info:', error);
+        document.querySelector('.user-email').textContent = 'Error loading user info';
+      }
+    }
+    
+    function getQueryParam(param) {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get(param);
+    }
+
+    function renderBreadcrumbs(path) {
+      const breadcrumbsDiv = document.getElementById('breadcrumbs');
+      breadcrumbsDiv.innerHTML = '';
+      // Normalize path to start with '/'
+      if (!path.startsWith('/')) {
+        path = '/' + path;
+      }
+      const parts = path.split('/').filter(Boolean);
+      let cumulativePath = '/';
+      const rootLink = document.createElement('a');
+      rootLink.href = 'filesystem.html?path=/';
+      rootLink.textContent = '/';
+      breadcrumbsDiv.appendChild(rootLink);
+      breadcrumbsDiv.appendChild(document.createTextNode(' '));
+      parts.forEach((part, index) => {
+        cumulativePath += (index === 0 ? '' : '/') + part;
+        const link = document.createElement('a');
+        link.href = 'filesystem.html?path=' + encodeURIComponent(cumulativePath);
+        link.textContent = part + '/';
+        breadcrumbsDiv.appendChild(link);
+        breadcrumbsDiv.appendChild(document.createTextNode(' '));
+      });
+    }
+
+    async function loadDirectory(path) {
+      const messageDiv = document.getElementById('message');
+      messageDiv.textContent = 'Loading directory...';
+      try {
+        const res = await fetch('/api/fs/list?path=' + encodeURIComponent(path));
+        if (!res.ok) {
+          const errorData = await res.json();
+          // If not a directory, try loading as file
+          if (errorData.error === 'Not a directory') {
+            loadFile(path);
+            return;
+          }
+          throw new Error(errorData.error || 'Error fetching directory');
+        }
+        const data = await res.json();
+        renderBreadcrumbs(path);
+        messageDiv.textContent = '';
+        const contentDiv = document.getElementById('content');
+        const ul = document.createElement('ul');
+        ul.className = 'flex-list';
+
+        // Sort items and separate hidden from non-hidden
+        const hiddenItems = [];
+        const nonHiddenItems = [];
+        data.contents.forEach(item => {
+          if (item.name.startsWith('.')) {
+            hiddenItems.push(item);
+          } else {
+            nonHiddenItems.push(item);
+          }
+        });
+
+        // Sort each array alphabetically
+        hiddenItems.sort((a, b) => a.name.localeCompare(b.name));
+        nonHiddenItems.sort((a, b) => a.name.localeCompare(b.name));
+
+        // Function to create list item
+        const createListItem = (item) => {
+          const li = document.createElement('li');
+          const itemPath = path.endsWith('/') ? path + item.name : path + '/' + item.name;
+          const link = document.createElement('a');
+          link.href = 'filesystem.html?path=' + encodeURIComponent(itemPath);
+          const emoji = item.type === 'directory' ? '📁' : (item.type === 'file' ? '📄' : '❓');
+          link.textContent = emoji + ' ' + item.name;
+          li.appendChild(link);
+          return li;
+        };
+
+        // Add hidden items
+        hiddenItems.forEach(item => {
+          ul.appendChild(createListItem(item));
+        });
+
+        // Add break if there are both hidden and non-hidden items
+        if (hiddenItems.length > 0 && nonHiddenItems.length > 0) {
+          const breakDiv = document.createElement('div');
+          breakDiv.style.flexBasis = '100%';
+          breakDiv.style.height = '0';
+          ul.appendChild(breakDiv);
+        }
+
+        // Add non-hidden items
+        nonHiddenItems.forEach(item => {
+          ul.appendChild(createListItem(item));
+        });
+
+        contentDiv.innerHTML = '';
+        contentDiv.appendChild(ul);
+      } catch (e) {
+        document.getElementById('message').textContent = 'Error: ' + e.message;
+      }
+    }
+
+    async function loadFile(path) {
+      const messageDiv = document.getElementById('message');
+      messageDiv.textContent = 'Loading file...';
+      try {
+        const res = await fetch('/api/fs/file?path=' + encodeURIComponent(path));
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || 'Error fetching file');
+        }
+        const text = await res.text();
+        // Clear entire body and show file content in <pre> block
+          document.documentElement.innerHTML = '';
+          const pre = document.createElement('pre');
+          pre.textContent = text;
+          document.body.appendChild(pre);
+        } catch (e) {
+          document.getElementById('message').textContent = 'Error: ' + e.message;
+        }
+      }
+
+      const path = getQueryParam('path') || '/';
+      loadDirectory(path);
+      loadUserInfo();
+    </script>
+  </body>
+  </html>
+  

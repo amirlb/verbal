@@ -14,7 +14,7 @@ from anthropic import AsyncAnthropic
 from anthropic.types import TextBlockParam
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 import httpx
 from sse_starlette.sse import EventSourceResponse
 
@@ -133,6 +133,37 @@ async def whoami_endpoint(request: Request) -> JSONResponse:
         return JSONResponse(status_code=401, content={"error": "Unauthorized"})
     return JSONResponse(content={"email": email})
 
+# NEW API endpoints for filesystem browsing
+@api.get("/fs/list")
+async def list_fs_endpoint(path: str) -> JSONResponse:
+    if not os.path.exists(path):
+        return JSONResponse(status_code=404, content={"error": "Path not found"})
+    if not os.path.isdir(path):
+        return JSONResponse(status_code=400, content={"error": "Not a directory"})
+    items = []
+    for name in os.listdir(path):
+        full_path = os.path.join(path, name)
+        if os.path.isdir(full_path):
+            type_str = "directory"
+        elif os.path.isfile(full_path):
+            type_str = "file"
+        else:
+            type_str = "other"
+        items.append({"name": name, "type": type_str})
+    return JSONResponse(content={"contents": items})
+
+@api.get("/fs/file")
+async def get_fs_file_endpoint(path: str):
+    if not os.path.exists(path):
+        return JSONResponse(status_code=404, content={"error": "Path not found"})
+    if not os.path.isfile(path):
+        return JSONResponse(status_code=400, content={"error": "Not a file"})
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+    return PlainTextResponse(content, media_type='text/plain')
 
 # Mount the API under /api
 app.mount("/api", api)
