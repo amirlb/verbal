@@ -1,0 +1,33 @@
+  <header>
+    <a id="appName" href="./">Verbal</a>
+    <div class="hamburger-menu">
+      <button id="menuToggle" popovertarget="menu-content" popovertargetaction="toggle">
+        <svg viewBox="0 0 24 24">
+          <path d="M3 6h18M3 13h18M3 20h18" />
+        </svg>
+      </button>
+      <div id="menu-content" popover>
+        <button class="menu-item" id="themeToggle">
+          <svg id="sun-icon" viewBox="0 0 24 24">
+            <path d="M18 12a6 6 0 1 1-12 0 6 6 0 1 1 12 0z" id="sun" />
+            <path d="M20.315 15.444 L22.163 16.21 M15.444 20.315 L16.21 22.163 M8.5558 20.315 L7.7905 22.163 M3.6851 15.444 L1.8373 16.21 M3.6851 8.5558 L1.8373 7.7905 M8.5558 3.6851 L7.7905 1.8373 M15.444 3.6851 L16.21 1.8373 M20.315 8.5558 L22.163 7.7905"/>
+          </svg>
+          <svg id="moon-icon" viewBox="0 0 24 24">
+            <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454"/>
+          </svg>
+          <span>Theme</span>
+        </button>
+        <div class="separator"></div>
+        <div class="user-info">
+          <div>Signed in as</div>
+          <div class="user-email">Loading...</div>
+        </div>
+        <a href="/oauth2/sign_out" class="menu-item">
+          <svg viewBox="0 0 24 24">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>
+          </svg>
+          Sign out
+        </a>
+      </div>
+    </div>
+  </header>

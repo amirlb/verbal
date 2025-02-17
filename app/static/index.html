@@ -8,49 +8,49 @@
   <link rel="stylesheet" href="/style.css">
   <style>
     main {
-      padding: 10px;
       box-sizing: border-box;
-      gap: 10px;
+      color: var(--base3);
     }
-    .content-container {
+    #content-container {
+      padding: 10px 10px 10px 10px;
+      margin-top: 40px;
       flex-grow: 1;
       overflow: auto;
-      margin-top: 50px;
       display: flex;
-      align-items: stretch;
+      flex-direction: column;
+      gap: 10px;
+    }
+    h1 {
+      margin: 0 0 8px 0;
+      font-size: 24px;
+    }
+    h2 {
+      margin: 12px 0 0 0;
+      font-size: 20px;
+    }
+    #management-links {
+      display: flex;
       gap: 10px;
     }
     @media (max-width: 768px) {
-      .content-container {
+      #management-links {
         flex-direction: column;
-      }
-      .files-section {
-        height: calc(var(--unit) * 35);
+        align-items: stretch;
       }
     }
-    section {
-      border-radius: 8px;
-      background: var(--base02);
-    }
-    .control-buttons {
-        display: flex;
-        gap: 10px;
-        justify-content: flex-end;
-    }
-    .control-buttons button {
-        padding: 8px 16px;
+    .management {
+        padding: 12px;
         border: none;
+        text-decoration: none;
+        color: inherit;
         border-radius: 4px;
         font-size: 14px;
         cursor: pointer;
         transition: background-color 0.2s;
-    }
-    #newSession {
-        background: var(--orange);
-        color: var(--base3);
-    }
-    #newSession:hover {
-        background: var(--red);
+        background: var(--base03);
+        display: flex;
+        align-items: center;
+        gap: 10px;
     }
     #redeploy {
         background: var(--base01);
@@ -59,25 +59,17 @@
     #redeploy:hover {
         background: var(--base1);
     }
-    section {
-        flex: 1;
-        background: var(--base03);
-        border-radius: 8px;
-        padding: 10px;
-    }
-    section h2 {
-        color: var(--base2);
-        margin: 0 0 20px 0;
-        font-size: 18px;
-    }
     #sessionsList {
       list-style: none;
       padding: 0;
+      margin: 0;
+      flex-shrink: 1;
+      flex-basis: 0%;
     }
     #sessionsList > li > a {
-        background: var(--base02);
+        background: var(--base03);
         border-radius: 6px;
-        padding: 15px;
+        padding: 10px;
         margin-top: 10px;
         transition: background-color 0.2s;
         display: flex;
@@ -88,9 +80,6 @@
     }
     #sessionsList > li > a:hover {
         background: var(--base01);
-    }
-    #sessionsList > li:first-child > a {
-        padding: 24px;
     }
     .message-count {
         color: var(--base2);
@@ -103,19 +92,30 @@
     .files-content {
         color: var(--base1);
     }
+
+    #newChat {
+      height: 36px;
+      cursor: text;
+      text-decoration: none;
+      padding: 10px;
+      font-size: 16px;
+      border-top: 1px solid var(--base01);
+      border-radius: 8px 8px 0 0;
+      background: var(--base03);
+      color: var(--base01);
+    }
   </style>
 </head>
 <body>
   <header>
-    <span id="appName">Verbal</span>
-    <span style="flex-grow: 1"></span>
+    <a id="appName" href="./">Verbal</a>
     <div class="hamburger-menu">
-      <button class="menu-button" id="menuToggle">
+      <button id="menuToggle" popovertarget="menu-content" popovertargetaction="toggle">
         <svg viewBox="0 0 24 24">
           <path d="M3 6h18M3 13h18M3 20h18" />
         </svg>
       </button>
-      <div class="menu-content">
+      <div id="menu-content" popover>
         <button class="menu-item" id="themeToggle">
           <svg id="sun-icon" viewBox="0 0 24 24">
             <path d="M18 12a6 6 0 1 1-12 0 6 6 0 1 1 12 0z" id="sun" />
@@ -141,43 +141,24 @@
     </div>
   </header>
   <main>
-    <div class="content-container">
-      <section class="files-section">
-        <h2>Files</h2>
-        <div class="files-content">
-          <a href="filesystem.html?path=/workspace">TBD</a>
-        </div>
-      </section>
-      <section class="sessions-section">
-        <h2>Sessions</h2>
-        <ul id="sessionsList">
-          <li><a href="chat.html">Start new session</a></li>
-        </ul>
-      </section>
+    <div id="content-container">
+      <h1>Amir's playground</h1>
+      <div>Uptime: <span id="uptime">TBD</span></div>
+      <div>Free space: <span id="free-space">TBD</span></div>
+      <div id="management-links">
+        <a class="management" href="filesystem.html?path=/workspace"><span>📁 Files</span>/workspace</a>
+        <a class="management" href="logs.html">🗒 Service logs</a>
+        <button class="management" id="redeploy">🗘 Re-deploy</button>
+      </div>
+      <h2>Resume session...</h2>
+      <ul id="sessionsList">
+      </ul>
     </div>
-    <div class="control-buttons">
-      <button id="redeploy">Re-deploy</button>
-    </div>
+    <a href="chat.html" id="newChat">Type your command here...</a>
   </main>
   <script src="/common.js"></script>
   <script>
     "use strict";
-
-    // Menu handling
-    const menuToggle = document.getElementById('menuToggle');
-    const menuContent = menuToggle.nextElementSibling;
-    
-    menuToggle.addEventListener('click', (e) => {
-      e.stopPropagation();
-      menuContent.classList.toggle('active');
-    });
-
-    // Close menu when clicking outside
-    document.addEventListener('click', (e) => {
-      if (!menuContent.contains(e.target) && !menuToggle.contains(e.target)) {
-        menuContent.classList.remove('active');
-      }
-    });
 
     // Load user info
     async function loadUserInfo() {
@@ -197,7 +178,7 @@
         const response = await fetch('/api/conversations');
         const data = await response.json();
         const sessionsList = document.getElementById('sessionsList');
-        sessionsList.innerHTML = '<li><a href="chat.html">Start new session</a></li>';
+        sessionsList.innerHTML = '';
         
         const sessionIds = Object.keys(data.conversations);
         sessionIds.sort((a, b) => data.conversations[b].last_message_at - data.conversations[a].last_message_at);
@@ -263,4 +244,4 @@
     setInterval(loadSessions, 30000);
   </script>
 </body>
-</html> 
+</html>
