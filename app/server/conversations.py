@@ -1,8 +1,6 @@
-from datetime import datetime, timedelta
-import json
-import sqlite3
+from datetime import timedelta
 import traceback
-from typing import Any, AsyncGenerator, Literal, TypedDict, Union
+from typing import Any, AsyncGenerator
 
 from anthropic import AsyncAnthropic, RateLimitError
 from anthropic.types import (
@@ -11,20 +9,13 @@ from anthropic.types import (
     ToolUseBlockParam,
 )
 
+from .db import DAL, Message
 from .tools import BashTool, BashSessionsManager, EditTool, ToolCollection
-
-
-class Message(TypedDict):
-    """A message in the conversation."""
-
-    role: Literal["user", "assistant"]
-    content: Union[TextBlockParam, ToolUseBlockParam, ToolResultBlockParam]
-    timestamp: int
 
 
 class Conversations:
     def __init__(
-        self, db: sqlite3.Connection, client: AsyncAnthropic, model_name: str, system_prompt: str
+        self, db: DAL, client: AsyncAnthropic, model_name: str, system_prompt: str
     ):
         self._db = db
         self._client = client
@@ -32,76 +23,12 @@ class Conversations:
         self._model_name = model_name
         self._system_prompt = system_prompt
 
-    def prepare_db(self):
-        self._db.execute("""
-            CREATE TABLE IF NOT EXISTS message (
-                session_id TEXT,
-                role TEXT,
-                content TEXT,
-                timestamp INTEGER
-            );
-        """)
-        self._db.execute("""
-            CREATE INDEX IF NOT EXISTS message_session_id_timestmap_idx ON message (session_id, timestamp);
-        """)
-        self._db.commit()
-
-    def list_conversations(self) -> list[str]:
-        cursor = self._db.cursor()
-        cursor.execute("""
-            SELECT
-                session_id,
-                count(*) as message_count,
-                min(timestamp) as created_at,
-                max(timestamp) as last_message_at
-            FROM message
-            GROUP BY session_id
-        """)
-        return {
-            session_id: {
-                "message_count": message_count,
-                "created_at": created_at,
-                "last_message_at": last_message_at,
-            }
-            for session_id, message_count, created_at, last_message_at in cursor.fetchall()
-        }
-
-    def get_conversation(self, session_id: str) -> list[Message]:
-        cursor = self._db.cursor()
-        cursor.execute(
-            """
-            SELECT role, content, timestamp
-            FROM message
-            WHERE session_id = ?
-            ORDER BY timestamp
-        """,
-            (session_id,),
-        )
-        return [
-            Message(role=role, content=json.loads(content), timestamp=timestamp)
-            for role, content, timestamp in cursor.fetchall()
-        ]
-
-    def add_message(
-        self, session_id: str, role: Literal["user", "assistant"], content: dict[str, Any]
-    ) -> Message:
-        timestamp = datetime.now().timestamp()
-        self._db.execute(
-            """
-            INSERT INTO message (session_id, role, content, timestamp)
-            VALUES (?, ?, ?, ?)
-        """,
-            (session_id, role, json.dumps(content), timestamp),
-        )
-        self._db.commit()
-        return Message(role=role, content=content, timestamp=timestamp)
-
     async def agent_loop(self, session_id: str) -> AsyncGenerator[dict[str, Any], None]:
         tool_collection = ToolCollection(
             BashTool(self._bash_manager, session_id),
             EditTool(),
         )
-        conversation = self.get_conversation(session_id)
+        conversation = self._db.get_conversation(session_id)
         try:
             while conversation[-1]["role"] == "user":
                 response = await self._client.messages.create(
@@ -115,7 +42,9 @@ class Conversations:
                 )
                 for block in response.content:
                     content = self._parse_response_block(block)
-                    conversation.append(self.add_message(session_id, "assistant", content))
+                    message = Message.create("assistant", content)
+                    self._db.add_message(session_id, message)
+                    conversation.append(message)
                     yield content
                     if content["type"] == "tool_use":
                         result = await tool_collection.run(
@@ -128,7 +57,9 @@ class Conversations:
                             content=str(result),
                             is_error=bool(result.error),
                         )
-                        conversation.append(self.add_message(session_id, "user", result_block))
+                        message = Message.create("user", result_block)
+                        self._db.add_message(session_id, message)
+                        conversation.append(message)
                         yield result_block
         except Exception as e:
             yield {"type": "error", "message": self._exception_to_error_message(e)}

@@ -19,6 +19,7 @@ import httpx
 from sse_starlette.sse import EventSourceResponse
 
 from .conversations import Conversations
+from .db import DAL, Message
 
 
 logging.basicConfig(
@@ -46,19 +47,17 @@ The user accesses the assistant via a mobile app, so you need to keep your answe
 </SYSTEM_CAPABILITY>"""
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-MODEL_NAME = os.getenv("MODEL_NAME", "claude-3-5-sonnet-20241022")
-DATABASE_FILE_NAME = os.getenv("DATABASE_FILE_NAME", "/verbal/db.sqlite")
+MODEL_NAME = os.getenv("MODEL_NAME", "claude-3-7-sonnet-20250219")
 
 
-db = sqlite3.connect(DATABASE_FILE_NAME)
+db = DAL()
 
 conversations = Conversations(
-    db=sqlite3.connect(DATABASE_FILE_NAME),
+    db=db,
     client=AsyncAnthropic(api_key=ANTHROPIC_API_KEY, max_retries=4),
     model_name=MODEL_NAME,
     system_prompt=SYSTEM_PROMPT,
 )
-conversations.prepare_db()
 
 
 app = FastAPI(title="Verbal")
@@ -79,7 +78,7 @@ async def chat_endpoint(request: Request) -> EventSourceResponse:
         session_id = str(uuid.uuid4())
         initial_events.append({"type": "session_id", "session_id": session_id})
 
-    conversations.add_message(session_id, "user", TextBlockParam(type="text", text=data["text"]))
+    db.add_message(session_id, Message.create("user", TextBlockParam(type="text", text=data["text"])))
 
     async def stream():
         for event in initial_events:
@@ -117,13 +116,13 @@ async def redeploy_endpoint() -> JSONResponse:
 @api.get("/conversations")
 async def list_conversations() -> JSONResponse:
     """List all available conversation IDs with their message counts."""
-    return JSONResponse(content={"conversations": conversations.list_conversations()})
+    return JSONResponse(content={"conversations": db.list_conversations()})
 
 
 @api.get("/conversations/{conversation_id}")
 async def get_conversation(conversation_id: str) -> JSONResponse:
     """Get the full history of a specific conversation."""
-    return JSONResponse(content={"messages": conversations.get_conversation(conversation_id)})
+    return JSONResponse(content={"messages": db.get_conversation(conversation_id)})
 
 
 @api.get("/whoami")
