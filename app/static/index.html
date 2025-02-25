@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,6 +12,7 @@
       box-sizing: border-box;
       color: var(--base3);
     }
+
     #content-container {
       padding: 10px 10px 10px 10px;
       margin-top: 40px;
@@ -20,45 +22,53 @@
       flex-direction: column;
       gap: 10px;
     }
+
     h1 {
       margin: 0 0 8px 0;
       font-size: 24px;
     }
+
     h2 {
       margin: 12px 0 0 0;
       font-size: 20px;
     }
+
     #management-links {
       display: flex;
       gap: 10px;
     }
+
     @media (max-width: 768px) {
       #management-links {
         flex-direction: column;
         align-items: stretch;
       }
     }
+
     .management {
-        padding: 12px;
-        border: none;
-        text-decoration: none;
-        color: inherit;
-        border-radius: 4px;
-        font-size: 14px;
-        cursor: pointer;
-        transition: background-color 0.2s;
-        background: var(--base03);
-        display: flex;
-        align-items: center;
-        gap: 10px;
+      padding: 12px;
+      border: none;
+      text-decoration: none;
+      color: inherit;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      background: var(--base03);
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
+
     #redeploy {
-        background: var(--base01);
-        color: var(--base3);
+      background: var(--base01);
+      color: var(--base3);
     }
+
     #redeploy:hover {
-        background: var(--base1);
+      background: var(--base1);
     }
+
     #sessionsList {
       list-style: none;
       padding: 0;
@@ -66,31 +76,36 @@
       flex-shrink: 1;
       flex-basis: 0%;
     }
-    #sessionsList > li > a {
-        background: var(--base03);
-        border-radius: 6px;
-        padding: 10px;
-        margin-top: 10px;
-        transition: background-color 0.2s;
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
-        text-decoration: none;
-        color: inherit;
+
+    #sessionsList>li>a {
+      background: var(--base03);
+      border-radius: 6px;
+      padding: 10px;
+      margin-top: 10px;
+      transition: background-color 0.2s;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      text-decoration: none;
+      color: inherit;
     }
-    #sessionsList > li > a:hover {
-        background: var(--base01);
+
+    #sessionsList>li>a:hover {
+      background: var(--base01);
     }
+
     .message-count {
-        color: var(--base2);
-        font-weight: bold;
+      color: var(--base2);
+      font-weight: bold;
     }
+
     .last-message {
-        color: var(--base1);
-        font-size: 14px;
+      color: var(--base1);
+      font-size: 14px;
     }
+
     .files-content {
-        color: var(--base1);
+      color: var(--base1);
     }
 
     #newChat {
@@ -104,8 +119,105 @@
       background: var(--base03);
       color: var(--base01);
     }
+
+    .session-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .session-action {
+      background: var(--base02);
+      border: none;
+      color: var(--base2);
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+
+    .session-action:hover {
+      background: var(--base01);
+      color: var(--base3);
+    }
+
+    .session-action.delete {
+      background: var(--red);
+      color: var(--base3);
+    }
+
+    .session-action.delete:hover {
+      background: #d33;
+    }
+
+    .session-name {
+      font-weight: bold;
+      color: var(--base3);
+      font-size: 16px;
+    }
+
+    .rename-dialog {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .rename-dialog-content {
+      background: var(--base02);
+      padding: 20px;
+      border-radius: 8px;
+      width: 80%;
+      max-width: 400px;
+    }
+
+    .rename-dialog h3 {
+      margin-top: 0;
+    }
+
+    .rename-dialog input {
+      width: 100%;
+      padding: 8px;
+      margin: 10px 0;
+      background: var(--base03);
+      border: 1px solid var(--base01);
+      color: var(--base3);
+      border-radius: 4px;
+    }
+
+    .rename-dialog-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .rename-dialog-button {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .rename-dialog-cancel {
+      background: var(--base01);
+      color: var(--base3);
+    }
+
+    .rename-dialog-save {
+      background: var(--blue);
+      color: var(--base3);
+    }
   </style>
 </head>
+
 <body>
   <header>
     <a id="appName" href="./">Verbal</a>
@@ -119,10 +231,11 @@
         <button class="menu-item" id="themeToggle">
           <svg id="sun-icon" viewBox="0 0 24 24">
             <path d="M18 12a6 6 0 1 1-12 0 6 6 0 1 1 12 0z" id="sun" />
-            <path d="M20.315 15.444 L22.163 16.21 M15.444 20.315 L16.21 22.163 M8.5558 20.315 L7.7905 22.163 M3.6851 15.444 L1.8373 16.21 M3.6851 8.5558 L1.8373 7.7905 M8.5558 3.6851 L7.7905 1.8373 M15.444 3.6851 L16.21 1.8373 M20.315 8.5558 L22.163 7.7905"/>
+            <path
+              d="M20.315 15.444 L22.163 16.21 M15.444 20.315 L16.21 22.163 M8.5558 20.315 L7.7905 22.163 M3.6851 15.444 L1.8373 16.21 M3.6851 8.5558 L1.8373 7.7905 M8.5558 3.6851 L7.7905 1.8373 M15.444 3.6851 L16.21 1.8373 M20.315 8.5558 L22.163 7.7905" />
           </svg>
           <svg id="moon-icon" viewBox="0 0 24 24">
-            <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454"/>
+            <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454" />
           </svg>
           <span>Theme</span>
         </button>
@@ -133,7 +246,7 @@
         </div>
         <a href="/oauth2/sign_out" class="menu-item">
           <svg viewBox="0 0 24 24">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
           </svg>
           Sign out
         </a>
@@ -179,20 +292,155 @@
         const data = await response.json();
         const sessionsList = document.getElementById('sessionsList');
         sessionsList.innerHTML = '';
-        
+
         const sessionIds = Object.keys(data.conversations);
         sessionIds.sort((a, b) => data.conversations[b].last_message_at - data.conversations[a].last_message_at);
         for (const id of sessionIds) {
           const info = data.conversations[id];
           const li = document.createElement('li');
-          li.innerHTML = `<a href="chat.html?session=${encodeURIComponent(id)}">
+          li.dataset.sessionId = id;
+
+          const sessionLink = document.createElement('a');
+          sessionLink.href = `chat.html?session=${encodeURIComponent(id)}`;
+
+          sessionLink.innerHTML = `
+            <span class="session-name"></span>
             <span class="message-count">${info.message_count} messages</span>
             <span class="last-message">Last message: ${new Date(info.last_message_at * 1000).toLocaleString()}</span>
-          </a>`;
+          `;
+          sessionLink.querySelector('#session-name').textContent = info.name;
+
+          const actionsDiv = document.createElement('div');
+          actionsDiv.className = 'session-actions';
+          actionsDiv.innerHTML = `
+            <button class="session-action rename" data-session-id="${id}">Rename</button>
+            <button class="session-action delete" data-session-id="${id}">Delete</button>
+          `;
+
+          // Stop propagation of clicks on action buttons to prevent navigation
+          actionsDiv.addEventListener('click', (e) => {
+            if (e.target.classList.contains('session-action')) {
+              e.preventDefault();
+              e.stopPropagation();
+
+              const sessionId = e.target.dataset.sessionId;
+
+              if (e.target.classList.contains('rename')) {
+                showRenameDialog(sessionId, info.name);
+              } else if (e.target.classList.contains('delete')) {
+                confirmAndDeleteSession(sessionId, info.name);
+              }
+            }
+          });
+
+          sessionLink.appendChild(actionsDiv);
+          li.appendChild(sessionLink);
           sessionsList.appendChild(li);
         }
       } catch (error) {
         console.error('Failed to load sessions:', error);
+      }
+    }
+
+    // Show the rename dialog
+    function showRenameDialog(sessionId, currentName) {
+      const dialog = document.createElement('div');
+      dialog.className = 'rename-dialog';
+      dialog.innerHTML = `
+        <div class="rename-dialog-content">
+          <h3>Rename Session</h3>
+          <input type="text" id="session-name-input" placeholder="Enter new name">
+          <div class="rename-dialog-buttons">
+            <button class="rename-dialog-button rename-dialog-cancel">Cancel</button>
+            <button class="rename-dialog-button rename-dialog-save">Save</button>
+          </div>
+        </div>
+      `;
+      dialog.querySelector('#session-name-input').value = currentName;
+
+      document.body.appendChild(dialog);
+
+      const input = dialog.querySelector('#session-name-input');
+      input.focus();
+      input.select();
+
+      // Handle cancel
+      dialog.querySelector('.rename-dialog-cancel').addEventListener('click', () => {
+        document.body.removeChild(dialog);
+      });
+
+      // Handle save
+      dialog.querySelector('.rename-dialog-save').addEventListener('click', async () => {
+        const newName = input.value.trim();
+        if (newName) {
+          await renameSession(sessionId, newName);
+          document.body.removeChild(dialog);
+          loadSessions(); // Reload the sessions list
+        }
+      });
+
+      // Handle Enter key
+      input.addEventListener('keydown', async (e) => {
+        if (e.key === 'Enter') {
+          const newName = input.value.trim();
+          if (newName) {
+            await renameSession(sessionId, newName);
+            document.body.removeChild(dialog);
+            loadSessions(); // Reload the sessions list
+          }
+        }
+      });
+    }
+
+    // Rename session API call
+    async function renameSession(sessionId, newName) {
+      try {
+        const response = await fetch(`/api/conversations/${sessionId}/rename`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ name: newName })
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to rename session');
+        }
+
+        return true;
+      } catch (error) {
+        console.error('Error renaming session:', error);
+        alert('Failed to rename session: ' + error.message);
+        return false;
+      }
+    }
+
+    // Confirm and delete session
+    function confirmAndDeleteSession(sessionId, name) {
+      if (confirm(`Are you sure you want to delete the session "${name}"?`)) {
+        deleteSession(sessionId);
+      }
+    }
+
+    // Delete session API call
+    async function deleteSession(sessionId) {
+      try {
+        const response = await fetch(`/api/conversations/${sessionId}/delete`, {
+          method: 'POST'
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to delete session');
+        }
+
+        loadSessions(); // Reload the sessions list
+        return true;
+      } catch (error) {
+        console.error('Error deleting session:', error);
+        alert('Failed to delete session: ' + error.message);
+        return false;
       }
     }
 
@@ -244,4 +492,5 @@
     setInterval(loadSessions, 30000);
   </script>
 </body>
+
 </html>

@@ -316,14 +316,6 @@
 
     function renderMessage(message) {
       switch (message.type) {
-        case 'session_id':
-          currentSessionId = message.session_id;
-          // Update URL without reloading the page
-          const newUrl = new URL(window.location);
-          newUrl.searchParams.set('session', currentSessionId);
-          window.history.replaceState({}, '', newUrl);
-          return;
-
         case 'text':
           {
             const elt = document.createElement('div');
@@ -387,6 +379,18 @@
       const messageText = event.target.innerText.trim();
       if(messageText === "") return;
 
+      if (!currentSessionId) {
+        const response = await fetch('/api/create_session', {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+        });
+        const data = await response.json();
+        currentSessionId = data.session_id;
+        const newUrl = new URL(window.location);
+        newUrl.searchParams.set('session', currentSessionId);
+        window.history.replaceState({}, '', newUrl);
+      }
+
       const conversation = document.getElementById('conversation');
 
       // Append user's message
@@ -407,7 +411,7 @@
 
       handleEventStream(
         "/api/chat",
-        {type: "text", text: messageText},
+        {type: "text", text: messageText, session_id: currentSessionId},
         handleChatResponse,
         () => {document.getElementById('spinner').remove()}
       );

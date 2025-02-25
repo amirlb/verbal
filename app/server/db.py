@@ -2,7 +2,7 @@ from datetime import datetime
 import json
 import os
 import sqlite3
-from typing import Any, Literal, Self, TypedDict
+from typing import Any, Literal, Self, TypedDict, Optional
 
 
 
@@ -11,17 +11,13 @@ class Message(TypedDict):
 
     role: Literal["user", "assistant"]
     content: dict[str, Any]
-    timestamp: int
-
-    @classmethod
-    def create(cls, role: Literal["user", "assistant"], content: dict[str, Any]) -> Self:
-        return cls(role=role, content=content, timestamp=datetime.now().timestamp())
 
 
 class ConversationDetails(TypedDict):
     message_count: int
     created_at: int
     last_message_at: int
+    name: str
 
 
 class DAL:
@@ -42,6 +38,14 @@ class DAL:
         self._db.execute("""
             CREATE INDEX IF NOT EXISTS message_session_id_timestmap_idx ON message (session_id, timestamp);
         """)
+        self._db.execute("""
+            CREATE TABLE IF NOT EXISTS sessions (
+                session_id TEXT,
+                name TEXT,
+                deleted_ts INTEGER DEFAULT NULL
+            );
+        """)
+        
         self._db.commit()
 
     @classmethod
@@ -52,12 +56,15 @@ class DAL:
     def list_conversations(self) -> dict[str, ConversationDetails]:
         query = """
             SELECT
-                session_id,
+                m.session_id,
                 count(*) as message_count,
-                min(timestamp) as created_at,
-                max(timestamp) as last_message_at
-            FROM message
-            GROUP BY session_id
+                min(m.timestamp) as created_at,
+                max(m.timestamp) as last_message_at,
+                s.name as name
+            FROM message m
+            LEFT JOIN sessions s ON m.session_id = s.session_id
+            WHERE s.deleted_ts IS NULL
+            GROUP BY m.session_id
         """
         cursor = self._db.cursor()
         cursor.execute(query)
@@ -66,8 +73,9 @@ class DAL:
                 "message_count": message_count,
                 "created_at": created_at,
                 "last_message_at": last_message_at,
+                "name": name or session_id
             }
-            for session_id, message_count, created_at, last_message_at in cursor.fetchall()
+            for session_id, message_count, created_at, last_message_at, name in cursor.fetchall()
         }
 
     def get_conversation(self, session_id: str) -> list[Message]:
@@ -84,11 +92,41 @@ class DAL:
             for role, content, timestamp in cursor.fetchall()
         ]
 
+    def create_session(self, session_id: str, name: str = "") -> None:
+        query_template = """
+            INSERT INTO sessions (session_id, name) VALUES (?, ?)
+        """
+        cursor = self._db.cursor()
+        cursor.execute(query_template, (session_id, name))
+        self._db.commit()
+
     def add_message(self, session_id: str, message: Message) -> None:
         query_template = """
             INSERT INTO message (session_id, role, content, timestamp)
             VALUES (?, ?, ?, ?)
         """
         cursor = self._db.cursor()
-        cursor.execute(query_template, (session_id, message["role"], json.dumps(message["content"]), message["timestamp"]))
+        cursor.execute(query_template, (session_id, message["role"], json.dumps(message["content"]), datetime.now().timestamp()))
+        self._db.commit()
+
+    def rename_session(self, session_id: str, name: str) -> None:
+        """Rename a session."""
+        query_template = """
+            UPDATE sessions 
+            SET name = ? 
+            WHERE session_id = ?
+        """
+        cursor = self._db.cursor()
+        cursor.execute(query_template, (name, session_id))
+        self._db.commit()
+    
+    def delete_session(self, session_id: str) -> None:
+        """Mark a session as deleted."""
+        query_template = """
+            UPDATE sessions 
+            SET deleted_ts = ? 
+            WHERE session_id = ?
+        """
+        cursor = self._db.cursor()
+        cursor.execute(query_template, (datetime.now().timestamp(), session_id))
         self._db.commit()

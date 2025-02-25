@@ -70,19 +70,11 @@ async def chat_endpoint(request: Request) -> EventSourceResponse:
     """Chat endpoint that returns a Server-Sent Events stream."""
     data = await request.json()
     assert data["type"] == "text"
+    session_id = data["session_id"]
 
-    # Get existing session ID from request or generate new one
-    initial_events = []
-    session_id = data.get("session_id")
-    if session_id is None:
-        session_id = str(uuid.uuid4())
-        initial_events.append({"type": "session_id", "session_id": session_id})
-
-    db.add_message(session_id, Message.create("user", TextBlockParam(type="text", text=data["text"])))
+    db.add_message(session_id, Message(role="user", content=TextBlockParam(type="text", text=data["text"])))
 
     async def stream():
-        for event in initial_events:
-            yield json.dumps(event)
         async for event in conversations.agent_loop(session_id):
             yield json.dumps(event)
 
@@ -123,6 +115,31 @@ async def list_conversations() -> JSONResponse:
 async def get_conversation(conversation_id: str) -> JSONResponse:
     """Get the full history of a specific conversation."""
     return JSONResponse(content={"messages": db.get_conversation(conversation_id)})
+
+
+@api.post("/create_session")
+async def create_session() -> JSONResponse:
+    """Record a new conversation in the database."""
+    session_id = str(uuid.uuid4())
+    db.create_session(session_id)
+    return JSONResponse(content={"session_id": session_id})
+
+
+@api.post("/conversations/{conversation_id}/rename")
+async def rename_conversation(conversation_id: str, request: Request) -> JSONResponse:
+    """Rename a conversation."""
+    data = await request.json()
+    if "name" not in data:
+        return JSONResponse(status_code=400, content={"error": "Name is required"})
+    db.rename_session(conversation_id, data["name"])
+    return JSONResponse(content={"status": "ok"})
+
+
+@api.post("/conversations/{conversation_id}/delete")
+async def delete_conversation(conversation_id: str) -> JSONResponse:
+    """Mark a conversation as deleted."""
+    db.delete_session(conversation_id)
+    return JSONResponse(content={"status": "ok"})
 
 
 @api.get("/whoami")

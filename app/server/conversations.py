@@ -42,7 +42,7 @@ class Conversations:
                 )
                 for block in response.content:
                     content = self._parse_response_block(block)
-                    message = Message.create("assistant", content)
+                    message = Message(role="assistant", content=content)
                     self._db.add_message(session_id, message)
                     conversation.append(message)
                     yield content
@@ -57,7 +57,7 @@ class Conversations:
                             content=str(result),
                             is_error=bool(result.error),
                         )
-                        message = Message.create("user", result_block)
+                        message = Message(role="user", content=result_block)
                         self._db.add_message(session_id, message)
                         conversation.append(message)
                         yield result_block
