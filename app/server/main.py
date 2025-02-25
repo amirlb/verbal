@@ -106,9 +106,11 @@ async def redeploy_endpoint() -> JSONResponse:
 
 
 @api.get("/conversations")
-async def list_conversations() -> JSONResponse:
+async def list_conversations(request: Request) -> JSONResponse:
     """List all available conversation IDs with their message counts."""
-    return JSONResponse(content={"conversations": db.list_conversations()})
+    # Get user ID from header to filter conversations
+    user_id = request.headers.get("x-forwarded-user")
+    return JSONResponse(content={"conversations": db.list_conversations(user_id)})
 
 
 @api.get("/conversations/{conversation_id}")
@@ -118,10 +120,12 @@ async def get_conversation(conversation_id: str) -> JSONResponse:
 
 
 @api.post("/create_session")
-async def create_session() -> JSONResponse:
+async def create_session(request: Request) -> JSONResponse:
     """Record a new conversation in the database."""
     session_id = str(uuid.uuid4())
-    db.create_session(session_id)
+    # Get user ID from header if available
+    user_id = request.headers.get("x-forwarded-user")
+    db.create_session(session_id, user_id)
     return JSONResponse(content={"session_id": session_id})
 
 

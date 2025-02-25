@@ -42,7 +42,8 @@ class DAL:
             CREATE TABLE IF NOT EXISTS sessions (
                 session_id TEXT,
                 name TEXT,
-                deleted_ts INTEGER DEFAULT NULL
+                deleted_ts INTEGER DEFAULT NULL,
+                user_id TEXT
             );
         """)
         
@@ -53,7 +54,8 @@ class DAL:
         db_file_name = os.getenv(cls._DATABASE_FILE_NAME_ENV_VAR, cls._DEFAULT_DATABASE_FILE_NAME)
         return sqlite3.connect(db_file_name)
 
-    def list_conversations(self) -> dict[str, ConversationDetails]:
+    def list_conversations(self, user_id: str = None) -> dict[str, ConversationDetails]:
+        """List all conversations for a specific user or all if user_id is None."""
         query = """
             SELECT
                 m.session_id,
@@ -64,10 +66,20 @@ class DAL:
             FROM message m
             LEFT JOIN sessions s ON m.session_id = s.session_id
             WHERE s.deleted_ts IS NULL
-            GROUP BY m.session_id
         """
+        
+        # Add user_id filter if provided
+        if user_id:
+            query += " AND s.user_id = ?"
+        
+        query += " GROUP BY m.session_id"
+        
         cursor = self._db.cursor()
-        cursor.execute(query)
+        if user_id:
+            cursor.execute(query, (user_id,))
+        else:
+            cursor.execute(query)
+            
         return {
             session_id: {
                 "message_count": message_count,
@@ -92,12 +104,13 @@ class DAL:
             for role, content, timestamp in cursor.fetchall()
         ]
 
-    def create_session(self, session_id: str, name: str = "") -> None:
+    def create_session(self, session_id: str, user_id: str, name: str = "") -> None:
+        """Create a new session with the given user_id and name."""
         query_template = """
-            INSERT INTO sessions (session_id, name) VALUES (?, ?)
+            INSERT INTO sessions (session_id, name, user_id) VALUES (?, ?, ?)
         """
         cursor = self._db.cursor()
-        cursor.execute(query_template, (session_id, name))
+        cursor.execute(query_template, (session_id, name, user_id))
         self._db.commit()
 
     def add_message(self, session_id: str, message: Message) -> None:
