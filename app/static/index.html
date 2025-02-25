@@ -308,7 +308,7 @@
             <span class="message-count">${info.message_count} messages</span>
             <span class="last-message">Last message: ${new Date(info.last_message_at * 1000).toLocaleString()}</span>
           `;
-          sessionLink.querySelector('#session-name').textContent = info.name;
+          sessionLink.querySelector('.session-name').textContent = info.name;
 
           const actionsDiv = document.createElement('div');
           actionsDiv.className = 'session-actions';
@@ -488,8 +488,8 @@
     // Initial load
     loadSessions();
     loadUserInfo();
-    // Refresh sessions every 30 seconds
-    setInterval(loadSessions, 30000);
+    // Refresh sessions every 5 seconds
+    setInterval(loadSessions, 5000);
   </script>
 </body>
 

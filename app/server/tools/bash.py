@@ -134,7 +134,7 @@ class BashSessionsManager:
         await self._create_session(session_id)
 
     def _did_session_ever_use_bash(self, session_id: str) -> bool:
-        cursor = self.db.cursor()
+        cursor = self.db._db.cursor()
         cursor.execute("""
             SELECT 1 FROM message
             WHERE session_id = ? AND json_extract(content, '$.type') = 'tool_use' AND json_extract(content, '$.name') = 'bash'
